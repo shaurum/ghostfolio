@@ -46,6 +46,10 @@
         "baseHref": "/pt/",
         "translation": "apps/client/src/locales/messages.pt.xlf"
       },
+      "ru": {
+        "baseHref": "/ru/",
+        "translation": "apps/client/src/locales/messages.ru.xlf"
+      },
       "tr": {
         "baseHref": "/tr/",
         "translation": "apps/client/src/locales/messages.tr.xlf"
@@ -137,6 +141,10 @@
         "development-pt": {
           "baseHref": "/pt/",
           "localize": ["pt"]
+        },
+        "development-ru": {
+          "baseHref": "/ru/",
+          "localize": ["ru"]
         },
         "development-tr": {
           "baseHref": "/tr/",
@@ -259,6 +267,9 @@
         "development-pt": {
           "buildTarget": "client:build:development-pt"
         },
+        "development-ru": {
+          "buildTarget": "client:build:development-ru"
+        },
         "development-tr": {
           "buildTarget": "client:build:development-tr"
         },
@@ -291,6 +302,7 @@
           "messages.nl.xlf",
           "messages.pl.xlf",
           "messages.pt.xlf",
+          "messages.ru.xlf",
           "messages.tr.xlf",
           "messages.uk.xlf",
           "messages.zh.xlf"

@@ -376,6 +376,7 @@ export const SUPPORTED_LANGUAGE_CODES = [
   'nl',
   'pl',
   'pt',
+  'ru',
   'tr',
   'uk',
   'zh'
