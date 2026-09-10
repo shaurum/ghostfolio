@@ -8,6 +8,7 @@ import { FinancialModelingPrepService } from '@ghostfolio/api/services/data-prov
 import { GhostfolioService } from '@ghostfolio/api/services/data-provider/ghostfolio/ghostfolio.service';
 import { GoogleSheetsService } from '@ghostfolio/api/services/data-provider/google-sheets/google-sheets.service';
 import { ManualService } from '@ghostfolio/api/services/data-provider/manual/manual.service';
+import { MoscowExchangeService } from '@ghostfolio/api/services/data-provider/moscow-exchange/moscow-exchange.service';
 import { RapidApiService } from '@ghostfolio/api/services/data-provider/rapid-api/rapid-api.service';
 import { YahooFinanceService } from '@ghostfolio/api/services/data-provider/yahoo-finance/yahoo-finance.service';
 import { FetchModule } from '@ghostfolio/api/services/fetch/fetch.module';
@@ -43,6 +44,7 @@ import { DataProviderService } from './data-provider.service';
     GhostfolioService,
     GoogleSheetsService,
     ManualService,
+    MoscowExchangeService,
     RapidApiService,
     YahooFinanceService,
     {
@@ -54,6 +56,7 @@ import { DataProviderService } from './data-provider.service';
         GhostfolioService,
         GoogleSheetsService,
         ManualService,
+        MoscowExchangeService,
         RapidApiService,
         YahooFinanceService
       ],
@@ -66,6 +69,7 @@ import { DataProviderService } from './data-provider.service';
         ghostfolioService,
         googleSheetsService,
         manualService,
+        moscowExchangeService,
         rapidApiService,
         yahooFinanceService
       ) => [
@@ -76,6 +80,7 @@ import { DataProviderService } from './data-provider.service';
         ghostfolioService,
         googleSheetsService,
         manualService,
+        moscowExchangeService,
         rapidApiService,
         yahooFinanceService
       ]

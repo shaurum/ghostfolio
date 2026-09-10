@@ -61,7 +61,12 @@ export class ConfigurationService {
       }),
       DATA_SOURCE_IMPORT: str({ default: DataSource.YAHOO }),
       DATA_SOURCES: json({
-        default: [DataSource.COINGECKO, DataSource.MANUAL, DataSource.YAHOO]
+        default: [
+          DataSource.COINGECKO,
+          DataSource.MANUAL,
+          DataSource.MOSCOW_EXCHANGE,
+          DataSource.YAHOO
+        ]
       }),
       DATA_SOURCES_GHOSTFOLIO_DATA_PROVIDER: json({
         default: []
