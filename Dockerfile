@@ -60,6 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-suggests \
 
 COPY --chown=node:node --from=builder /ghostfolio/dist/apps /ghostfolio/apps/
 COPY --chown=node:node ./docker/entrypoint.sh /ghostfolio/
+RUN sed -i 's/\r$//' /ghostfolio/entrypoint.sh && chmod +x /ghostfolio/entrypoint.sh
 WORKDIR /ghostfolio/apps/api
 EXPOSE ${PORT:-3333}
 USER node

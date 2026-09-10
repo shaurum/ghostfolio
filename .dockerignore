@@ -1,0 +1,27 @@
+# VCS
+.git
+.gitignore
+
+# Build caches
+.nx
+.angular
+.angular/cache
+dist
+coverage
+
+# Dependencies
+node_modules
+
+# Local tooling / editor
+.vscode
+.agents
+.claude
+.husky
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
