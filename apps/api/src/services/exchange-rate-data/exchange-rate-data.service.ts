@@ -517,7 +517,7 @@ export class ExchangeRateDataService {
   }
 
   private async prepareCurrencies(): Promise<string[]> {
-    let currencies: string[] = [DEFAULT_CURRENCY];
+    let currencies: string[] = [DEFAULT_CURRENCY, 'RUB'];
 
     (
       await this.prismaService.account.findMany({
