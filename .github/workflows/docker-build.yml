@@ -33,7 +33,7 @@ jobs:
           TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:${IMAGE_OWNER}/${IMAGE_NAME}:pull" | jq -r .token)
           TAGS=$(curl -s -H "Authorization: Bearer ${TOKEN}" \
             "https://ghcr.io/v2/${IMAGE_OWNER}/${IMAGE_NAME}/tags/list" | jq -r '.tags[]? // empty')
-          MAX=$(printf '%s\n' ${TAGS} | grep -E '^[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n | tail -n 1)
+          MAX=$(printf '%s\n' ${TAGS} | grep -E '^[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n | tail -n 1 || true)
           if [ -z "$MAX" ]; then
             MAX="1.6"
           fi
