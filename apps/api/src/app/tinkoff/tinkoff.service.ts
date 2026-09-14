@@ -92,6 +92,30 @@ export class TinkoffService {
       );
     }
 
+    try {
+      const probe = await this.post<TinkoffInstrumentResponse>({
+        body: { id: 'BBG004730Z09', idType: TinkoffService.INSTRUMENT_ID_TYPE_FIGI },
+        path: TinkoffService.GET_INSTRUMENT_BY_PATH,
+        token
+      });
+
+      if (!probe.instrument) {
+        throw new Error('empty instrument');
+      }
+
+      this.logger.log(
+        `Instrument API check passed: ${probe.instrument.ticker} (${probe.instrument.classCode})`
+      );
+    } catch (error) {
+      this.logger.error(
+        `Instrument API probe failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+
+      throw new BadRequestException(
+        'The Tinkoff API token does not have access to instruments. Please create a Read-only or Full-access token (not Sandbox) in T-Invest settings'
+      );
+    }
+
     const accountsWithBalancesDto: CreateAccountWithBalancesDto[] =
       accounts.map(({ id, name }) => {
         return {
@@ -404,6 +428,10 @@ export class TinkoffService {
     }
 
     try {
+      this.logger.debug(
+        `GetInstrumentBy request: idType=${request.idType}, id=${request.id}`
+      );
+
       const response = await this.post<TinkoffInstrumentResponse>({
         body: request,
         path: TinkoffService.GET_INSTRUMENT_BY_PATH,
@@ -416,7 +444,9 @@ export class TinkoffService {
 
       return response.instrument;
     } catch (error) {
-      this.logger.warn(error);
+      this.logger.warn(
+        `GetInstrumentBy failed for id=${request.id} idType=${request.idType}: ${error instanceof Error ? error.message : String(error)}`
+      );
 
       return undefined;
     }
