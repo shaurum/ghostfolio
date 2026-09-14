@@ -128,6 +128,7 @@ export class InfoService {
       benchmarks,
       demoAuthToken,
       globalPermissions,
+      imageTag: process.env.IMAGE_TAG,
       isReadOnlyMode,
       statistics,
       subscriptionOffer,

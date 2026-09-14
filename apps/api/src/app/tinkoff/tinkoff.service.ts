@@ -1,0 +1,481 @@
+import { ImportService } from '@ghostfolio/api/app/import/import.service';
+import { DataProviderService } from '@ghostfolio/api/services/data-provider/data-provider.service';
+import { FetchService } from '@ghostfolio/api/services/fetch/fetch.service';
+import { PropertyService } from '@ghostfolio/api/services/property/property.service';
+import { PROPERTY_TINKOFF_API_TOKEN } from '@ghostfolio/common/config';
+import {
+  CreateAccountWithBalancesDto,
+  CreateOrderDto
+} from '@ghostfolio/common/dtos';
+import { getAssetProfileIdentifier } from '@ghostfolio/common/helper';
+import { AdminTinkoffSyncResponse } from '@ghostfolio/common/interfaces';
+import { UserWithSettings } from '@ghostfolio/common/types';
+
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { DataSource, Type } from '@prisma/client';
+import { Big } from 'big.js';
+import ms from 'ms';
+
+import {
+  TinkoffAccount,
+  TinkoffGetAccountsResponse,
+  TinkoffGetOperationsByCursorResponse,
+  TinkoffInstrument,
+  TinkoffInstrumentRequest,
+  TinkoffInstrumentResponse,
+  TinkoffMoneyValue,
+  TinkoffOperation
+} from './interfaces/tinkoff.invest.interface';
+
+@Injectable()
+export class TinkoffService {
+  private readonly logger = new Logger(TinkoffService.name);
+
+  private static readonly BASE_URL =
+    'https://invest-public-api.tinkoff.ru/rest';
+  private static readonly GET_ACCOUNTS_PATH =
+    'tinkoff.public.invest.api.contract.v1.UsersService/GetAccounts';
+  private static readonly GET_INSTRUMENT_BY_PATH =
+    'tinkoff.public.invest.api.contract.v1.InstrumentsService/GetInstrumentBy';
+  private static readonly GET_OPERATIONS_BY_CURSOR_PATH =
+    'tinkoff.public.invest.api.contract.v1.OperationsService/GetOperationsByCursor';
+  private static readonly INSTRUMENT_ID_TYPE_FIGI = 'INSTRUMENT_ID_TYPE_FIGI';
+  private static readonly INSTRUMENT_ID_TYPE_POSITION_UID =
+    'INSTRUMENT_ID_TYPE_POSITION_UID';
+  private static readonly INSTRUMENT_ID_TYPE_UID = 'INSTRUMENT_ID_TYPE_UID';
+  private static readonly MANUAL_ACTIVITY_PREFIX = 'tinkoff_';
+  private static readonly OPERATIONS_FROM = '2000-01-01T00:00:00Z';
+  private static readonly PLATFORM_ID = 'tinkoff';
+  private static readonly REQUEST_TIMEOUT = ms('30 seconds');
+  private static readonly SUPPORTED_CLASS_CODES = [
+    'TQBR',
+    'TQTF',
+    'TQIF',
+    'TQCB',
+    'TQOB',
+    'TQDB'
+  ];
+
+  private readonly instrumentsCache = new Map<string, TinkoffInstrument>();
+
+  public constructor(
+    private readonly dataProviderService: DataProviderService,
+    private readonly fetchService: FetchService,
+    private readonly importService: ImportService,
+    private readonly propertyService: PropertyService
+  ) {}
+
+  public async sync({
+    isDryRun,
+    user
+  }: {
+    isDryRun: boolean;
+    user: UserWithSettings;
+  }): Promise<AdminTinkoffSyncResponse> {
+    const token = (
+      await this.propertyService.getByKey<string>(PROPERTY_TINKOFF_API_TOKEN)
+    )?.trim();
+
+    if (!token) {
+      throw new BadRequestException(
+        'The Tinkoff API token is not configured in the admin settings'
+      );
+    }
+
+    const accounts = await this.getAccounts(token);
+
+    if (accounts.length === 0) {
+      throw new BadRequestException(
+        'No Tinkoff accounts have been found for the API token'
+      );
+    }
+
+    const accountsWithBalancesDto: CreateAccountWithBalancesDto[] =
+      accounts.map(({ id, name }) => {
+        return {
+          comment: id,
+          currency: 'RUB',
+          id: `${TinkoffService.MANUAL_ACTIVITY_PREFIX}${id}`,
+          name,
+          platformId: TinkoffService.PLATFORM_ID
+        };
+      });
+
+    const activitiesDto: CreateOrderDto[] = [];
+    let skippedActivitiesCount = 0;
+
+    const accountOverview = await Promise.all(
+      accounts.map(async ({ id, name }) => {
+        const operations = await this.getOperations({ accountId: id, token });
+        const accountId = `${TinkoffService.MANUAL_ACTIVITY_PREFIX}${id}`;
+
+        for (const operation of operations) {
+          const activity = await this.mapOperationToActivity({
+            accountId,
+            operation,
+            token
+          });
+
+          if (activity) {
+            activitiesDto.push(activity);
+          } else {
+            skippedActivitiesCount++;
+          }
+        }
+
+        return { accountId, name, operationsCount: operations.length };
+      })
+    );
+
+    const totalOperationsCount = skippedActivitiesCount + activitiesDto.length;
+    const activitiesDtoOfSupportedSymbols =
+      await this.getActivitiesOfSupportedSymbols(activitiesDto);
+
+    skippedActivitiesCount +=
+      activitiesDto.length - activitiesDtoOfSupportedSymbols.length;
+
+    this.logger.log(
+      `Syncing ${activitiesDtoOfSupportedSymbols.length} Tinkoff activities for user "${user.id}" (dry run: ${isDryRun})`
+    );
+
+    const activities = await this.importService
+      .import({
+        accountsWithBalancesDto,
+        activitiesDto: activitiesDtoOfSupportedSymbols,
+        assetProfilesWithMarketDataDto: [],
+        isDryRun,
+        platformsDto: [
+          {
+            id: TinkoffService.PLATFORM_ID,
+            name: 'Тинькофф Инвестиции',
+            url: 'https://www.tinkoff.ru/invest/'
+          }
+        ],
+        tagsDto: [],
+        user
+      })
+      .catch((error) => {
+        this.logger.error(error);
+
+        throw new BadRequestException(error.message);
+      });
+
+    return {
+      accounts: accountOverview,
+      accountsCount: accounts.length,
+      activitiesCount: activitiesDtoOfSupportedSymbols.length,
+      duplicateActivitiesCount: activities.filter(({ error }) => {
+        return error?.code === 'IS_DUPLICATE';
+      }).length,
+      failedActivitiesCount: activities.filter(({ error }) => {
+        return error && error.code !== 'IS_DUPLICATE';
+      }).length,
+      importedActivitiesCount: activities.filter(({ error }) => {
+        return !error;
+      }).length,
+      skippedActivitiesCount,
+      totalOperationsCount
+    };
+  }
+
+  private async getActivitiesOfSupportedSymbols(
+    activitiesDto: CreateOrderDto[]
+  ): Promise<CreateOrderDto[]> {
+    if (activitiesDto.length === 0) {
+      return [];
+    }
+
+    const symbolIds = [
+      ...new Set(
+        activitiesDto.map(({ symbol }) => {
+          return symbol;
+        })
+      )
+    ];
+
+    let assetProfiles: { [assetProfileIdentifier: string]: unknown } = {};
+
+    try {
+      assetProfiles = await this.dataProviderService.getAssetProfiles(
+        symbolIds.map((symbol) => {
+          return { dataSource: DataSource.MOSCOW_EXCHANGE, symbol };
+        })
+      );
+    } catch (error) {
+      this.logger.error(error);
+    }
+
+    const supportedAssetProfileIdentifiers = new Set(
+      Object.keys(assetProfiles)
+    );
+
+    const activitiesDtoOfSupportedSymbols = activitiesDto.filter(
+      ({ symbol }) => {
+        return supportedAssetProfileIdentifiers.has(
+          getAssetProfileIdentifier({
+            dataSource: DataSource.MOSCOW_EXCHANGE,
+            symbol
+          })
+        );
+      }
+    );
+
+    for (const { symbol } of activitiesDto) {
+      if (
+        !supportedAssetProfileIdentifiers.has(
+          getAssetProfileIdentifier({
+            dataSource: DataSource.MOSCOW_EXCHANGE,
+            symbol
+          })
+        )
+      ) {
+        this.logger.warn(
+          `Skipping the symbol "${symbol}" (${DataSource.MOSCOW_EXCHANGE}), because it could not be resolved by the data provider`
+        );
+      }
+    }
+
+    return activitiesDtoOfSupportedSymbols;
+  }
+
+  private async getAccounts(token: string): Promise<TinkoffAccount[]> {
+    const response = await this.post<TinkoffGetAccountsResponse>({
+      body: {},
+      path: TinkoffService.GET_ACCOUNTS_PATH,
+      token
+    });
+
+    return response.accounts ?? [];
+  }
+
+  private async getOperations({
+    accountId,
+    token
+  }: {
+    accountId: string;
+    token: string;
+  }): Promise<TinkoffOperation[]> {
+    const operations: TinkoffOperation[] = [];
+    let cursor: string | undefined;
+
+    do {
+      const response = await this.post<TinkoffGetOperationsByCursorResponse>({
+        body: {
+          accountId,
+          cursor: cursor ?? undefined,
+          from: TinkoffService.OPERATIONS_FROM,
+          limit: 1000,
+          state: 'OPERATION_STATE_EXECUTED'
+        },
+        path: TinkoffService.GET_OPERATIONS_BY_CURSOR_PATH,
+        token
+      });
+
+      operations.push(...(response.items ?? []));
+
+      cursor = response.hasNext ? response.nextCursor : undefined;
+    } while (cursor);
+
+    return operations;
+  }
+
+  private async mapOperationToActivity({
+    accountId,
+    operation,
+    token
+  }: {
+    accountId: string;
+    operation: TinkoffOperation;
+    token: string;
+  }): Promise<CreateOrderDto | undefined> {
+    const type = this.getActivityType(operation.type);
+
+    if (!type) {
+      return undefined;
+    }
+
+    if (!operation.date) {
+      return undefined;
+    }
+
+    const instrument = await this.getInstrument({ operation, token });
+
+    if (
+      !instrument?.ticker ||
+      !instrument.classCode ||
+      !TinkoffService.SUPPORTED_CLASS_CODES.includes(instrument.classCode)
+    ) {
+      return undefined;
+    }
+
+    const quantity = new Big(operation.quantity ?? '0').abs().toNumber();
+
+    if (quantity <= 0) {
+      return undefined;
+    }
+
+    const payment = this.toNumber(operation.payment);
+    const price = this.toNumber(operation.price);
+    let unitPrice: number;
+
+    if (type === Type.DIVIDEND) {
+      unitPrice = new Big(payment).abs().toNumber();
+    } else {
+      unitPrice = new Big(price).abs().toNumber();
+    }
+
+    if (unitPrice <= 0) {
+      return undefined;
+    }
+
+    return {
+      accountId,
+      comment: operation.name || undefined,
+      currency:
+        operation.payment?.currency?.toUpperCase() ??
+        instrument.currency?.toUpperCase() ??
+        'RUB',
+      dataSource: DataSource.MOSCOW_EXCHANGE,
+      date: operation.date,
+      fee: this.toNumber(operation.commission),
+      quantity: type === Type.DIVIDEND ? 1 : quantity,
+      symbol: `${instrument.ticker.toUpperCase()}.MOEX`,
+      type,
+      unitPrice
+    };
+  }
+
+  private async getInstrument({
+    operation,
+    token
+  }: {
+    operation: TinkoffOperation;
+    token: string;
+  }): Promise<TinkoffInstrument | undefined> {
+    const request = this.getInstrumentRequest(operation);
+
+    if (!request) {
+      return undefined;
+    }
+
+    if (this.instrumentsCache.has(request.id)) {
+      return this.instrumentsCache.get(request.id);
+    }
+
+    try {
+      const response = await this.post<TinkoffInstrumentResponse>({
+        body: request,
+        path: TinkoffService.GET_INSTRUMENT_BY_PATH,
+        token
+      });
+
+      if (response.instrument) {
+        this.instrumentsCache.set(request.id, response.instrument);
+      }
+
+      return response.instrument;
+    } catch (error) {
+      this.logger.warn(error);
+
+      return undefined;
+    }
+  }
+
+  private getInstrumentRequest(
+    operation: TinkoffOperation
+  ): TinkoffInstrumentRequest | undefined {
+    if (operation.instrumentUid) {
+      return {
+        id: operation.instrumentUid,
+        idType: TinkoffService.INSTRUMENT_ID_TYPE_UID
+      };
+    }
+
+    if (operation.positionUid) {
+      return {
+        id: operation.positionUid,
+        idType: TinkoffService.INSTRUMENT_ID_TYPE_POSITION_UID
+      };
+    }
+
+    if (operation.figi) {
+      return {
+        id: operation.figi,
+        idType: TinkoffService.INSTRUMENT_ID_TYPE_FIGI
+      };
+    }
+
+    return undefined;
+  }
+
+  private getActivityType(operationType: string): Type | undefined {
+    switch (operationType) {
+      case 'OPERATION_TYPE_BUY':
+      case 'OPERATION_TYPE_BUY_CARD':
+      case 'OPERATION_TYPE_BUY_MARGIN':
+        return Type.BUY;
+      case 'OPERATION_TYPE_SELL':
+      case 'OPERATION_TYPE_SELL_CARD':
+      case 'OPERATION_TYPE_SELL_MARGIN':
+        return Type.SELL;
+      case 'OPERATION_TYPE_COUPON':
+      case 'OPERATION_TYPE_DIVIDEND':
+      case 'OPERATION_TYPE_PAYMENT':
+        return Type.DIVIDEND;
+      default:
+        return undefined;
+    }
+  }
+
+  private async post<T>({
+    body,
+    path,
+    token
+  }: {
+    body: unknown;
+    path: string;
+    token: string;
+  }): Promise<T> {
+    try {
+      const response = await this.fetchService.fetch(
+        `${TinkoffService.BASE_URL}/${path}`,
+        {
+          body: JSON.stringify(body),
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          method: 'POST',
+          signal: AbortSignal.timeout(TinkoffService.REQUEST_TIMEOUT)
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new BadRequestException(
+          data?.message ??
+            `The Tinkoff Invest API request to "${path}" failed with status ${response.status}`
+        );
+      }
+
+      return data as T;
+    } catch (error) {
+      this.logger.error(
+        `The Tinkoff Invest API request to "${path}" failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
+
+      throw error;
+    }
+  }
+
+  private toNumber(money: TinkoffMoneyValue | undefined): number {
+    if (!money) {
+      return 0;
+    }
+
+    return new Big(money.units).plus(new Big(money.nano).div(1e9)).toNumber();
+  }
+}

@@ -1,4 +1,9 @@
 <div class="container">
+  @if (imageTag) {
+    <div class="text-center text-muted mb-3">
+      <small>Image version: {{ imageTag }}</small>
+    </div>
+  }
   <div class="mb-5 row">
     <div class="col">
       <h2 class="text-center" i18n>Data Providers</h2>
@@ -175,6 +180,78 @@
             width: '100%'
           }"
         />
+      }
+    </div>
+  </div>
+  <div class="mb-5 row">
+    <div class="col">
+      <h2 class="text-center">Tinkoff Investments</h2>
+      <div class="justify-content-center mb-2 row">
+        @if (hasTinkoffApiToken) {
+          <div class="align-items-center d-inline-flex">
+            <span class="text-muted">API token is configured</span>
+            <button
+              class="mx-1 no-min-width px-2"
+              mat-button
+              [matMenuTriggerFor]="tinkoffApiMenu"
+              (click)="$event.stopPropagation()"
+            >
+              <ion-icon name="ellipsis-horizontal" />
+            </button>
+            <mat-menu
+              #tinkoffApiMenu="matMenu"
+              class="no-max-width"
+              xPosition="before"
+            >
+              <button mat-menu-item (click)="onRemoveTinkoffApiToken()">
+                <span class="align-items-center d-flex">
+                  <ion-icon class="mr-2" name="trash-outline" />
+                  <span>Remove API token</span>
+                </span>
+              </button>
+            </mat-menu>
+          </div>
+        } @else {
+          <button
+            class="special text-nowrap"
+            mat-flat-button
+            (click)="onSetTinkoffApiToken()"
+          >
+            Set API token
+          </button>
+        }
+      </div>
+      <div class="justify-content-center mb-2 row">
+        <button
+          class="mr-2 text-nowrap"
+          mat-stroked-button
+          [disabled]="isSyncingTinkoff || !hasTinkoffApiToken"
+          (click)="onSyncTinkoff(true)"
+        >
+          Preview
+        </button>
+        <button
+          class="special text-nowrap"
+          mat-flat-button
+          [disabled]="isSyncingTinkoff || !hasTinkoffApiToken"
+          (click)="onSyncTinkoff(false)"
+        >
+          Sync now
+        </button>
+      </div>
+      @if (isSyncingTinkoff) {
+        <mat-progress-bar mode="indeterminate" />
+      }
+      @if (tinkoffSyncResult) {
+        <div class="justify-content-center row">
+          <small class="text-muted">
+            Accounts: {{ tinkoffSyncResult.accountsCount }} | Imported:
+            {{ tinkoffSyncResult.importedActivitiesCount }} | Duplicates:
+            {{ tinkoffSyncResult.duplicateActivitiesCount }} | Failed:
+            {{ tinkoffSyncResult.failedActivitiesCount }} | Skipped:
+            {{ tinkoffSyncResult.skippedActivitiesCount }}
+          </small>
+        </div>
       }
     </div>
   </div>

@@ -15,6 +15,7 @@ import {
   AdminJobs,
   AdminUserResponse,
   AdminUsersResponse,
+  AdminTinkoffSyncResponse,
   AssetProfileIdentifier,
   DataProviderGhostfolioStatusResponse,
   DataProviderHistoricalResponse,
@@ -260,7 +261,17 @@ export class AdminService {
   }
 
   public syncDemoUserAccount() {
-    return this.http.get<void>(`/api/v1/admin/demo-user/sync`);
+    return this.http.get<void>('/api/v1/admin/demo-user/sync');
+  }
+
+  public syncTinkoff({ dryRun }: { dryRun: boolean }) {
+    const params = new HttpParams().set('dryRun', String(dryRun));
+
+    return this.http.post<AdminTinkoffSyncResponse>(
+      '/api/v1/admin/tinkoff/sync',
+      null,
+      { params }
+    );
   }
 
   public testMarketData({

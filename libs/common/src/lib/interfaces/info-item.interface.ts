@@ -5,6 +5,7 @@ import { SubscriptionOffer } from './subscription-offer.interface';
 
 export interface InfoItem {
   baseCurrency: string;
+  imageTag?: string;
   benchmarks: Partial<SymbolProfile>[];
   countriesOfSubscribers?: string[];
   currencies: string[];

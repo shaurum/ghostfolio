@@ -4,11 +4,13 @@ import { GfDataProviderStatusComponent } from '@ghostfolio/client/components/dat
 import { UserService } from '@ghostfolio/client/services/user/user.service';
 import {
   DEFAULT_LOCALE,
-  PROPERTY_API_KEY_GHOSTFOLIO
+  PROPERTY_API_KEY_GHOSTFOLIO,
+  PROPERTY_TINKOFF_API_TOKEN
 } from '@ghostfolio/common/config';
 import { ConfirmationDialogType } from '@ghostfolio/common/enums';
 import { getDateFormatString } from '@ghostfolio/common/helper';
 import {
+  AdminTinkoffSyncResponse,
   DataProviderGhostfolioStatusResponse,
   DataProviderInfo,
   User
@@ -83,8 +85,12 @@ export class GfAdminSettingsComponent implements OnInit {
   public ghostfolioApiStatus: DataProviderGhostfolioStatusResponse;
   public readonly ghostfolioApiStatusTooltip = $localize`Additional requests are granted while you are setting up your instance`;
   public hasGhostfolioApiKey: boolean;
+  public hasTinkoffApiToken: boolean;
+  public imageTag: string;
   public isGhostfolioApiKeyValid: boolean;
   public isLoading = false;
+  public isSyncingTinkoff = false;
+  public tinkoffSyncResult: AdminTinkoffSyncResponse | undefined;
   public user: User;
 
   protected readonly DEFAULT_LOCALE = DEFAULT_LOCALE;
@@ -136,6 +142,64 @@ export class GfAdminSettingsComponent implements OnInit {
     });
   }
 
+  public onRemoveTinkoffApiToken() {
+    this.notificationService.confirm({
+      confirmFn: () => {
+        this.dataService
+          .putAdminSetting(PROPERTY_TINKOFF_API_TOKEN, { value: undefined })
+          .subscribe(() => {
+            this.initialize();
+          });
+      },
+      confirmType: ConfirmationDialogType.Warn,
+      title: 'Do you really want to delete the Tinkoff API token?'
+    });
+  }
+
+  public onSetTinkoffApiToken() {
+    this.notificationService.prompt({
+      confirmFn: (value) => {
+        const tinkoffApiToken = value?.trim();
+
+        if (tinkoffApiToken) {
+          this.dataService
+            .putAdminSetting(PROPERTY_TINKOFF_API_TOKEN, {
+              value: tinkoffApiToken
+            })
+            .subscribe(() => {
+              this.initialize();
+            });
+        }
+      },
+      title: 'Please enter your Tinkoff API token.'
+    });
+  }
+
+  public onSyncTinkoff(isDryRun: boolean) {
+    this.tinkoffSyncResult = undefined;
+    this.isSyncingTinkoff = true;
+
+    this.adminService
+      .syncTinkoff({ dryRun: isDryRun })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.tinkoffSyncResult = result;
+          this.isSyncingTinkoff = false;
+          this.changeDetectorRef.markForCheck();
+        },
+        error: (error) => {
+          this.isSyncingTinkoff = false;
+          this.changeDetectorRef.markForCheck();
+
+          this.notificationService.alert({
+            message: error?.error?.message ?? error?.message,
+            title: 'The Tinkoff sync failed'
+          });
+        }
+      });
+  }
+
   public onSetGhostfolioApiKey() {
     this.notificationService.prompt({
       confirmFn: (value) => {
@@ -159,6 +223,7 @@ export class GfAdminSettingsComponent implements OnInit {
     this.isLoading = true;
 
     this.dataSource = new MatTableDataSource();
+    this.imageTag = (window as any).info?.imageTag;
 
     this.adminService
       .fetchAdminData()
@@ -177,6 +242,8 @@ export class GfAdminSettingsComponent implements OnInit {
         ] as string;
 
         this.hasGhostfolioApiKey = !!ghostfolioApiKey;
+
+        this.hasTinkoffApiToken = Boolean(settings[PROPERTY_TINKOFF_API_TOKEN]);
 
         if (ghostfolioApiKey) {
           this.adminService

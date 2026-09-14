@@ -52,11 +52,18 @@ RUN npm run database:generate-typings
 FROM node:22-slim
 LABEL org.opencontainers.image.source="https://github.com/ghostfolio/ghostfolio"
 ENV NODE_ENV=production
+ARG IMAGE_TAG=dev
+ENV IMAGE_TAG=${IMAGE_TAG}
 
 RUN apt-get update && apt-get install -y --no-install-suggests \
   curl \
   openssl \
   && rm -rf /var/lib/apt/lists/*
+
+# Trust the Russian national CA (Минцифры) used by T-Bank Invest API and other
+# Russian endpoints via Node's bundled CA store
+COPY --chown=node:node ./docker/ca/russian-trusted-ca-bundle.pem /ghostfolio/russian-trusted-ca-bundle.pem
+ENV NODE_EXTRA_CA_CERTS=/ghostfolio/russian-trusted-ca-bundle.pem
 
 COPY --chown=node:node --from=builder /ghostfolio/dist/apps /ghostfolio/apps/
 COPY --chown=node:node ./docker/entrypoint.sh /ghostfolio/
