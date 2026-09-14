@@ -23,6 +23,26 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Compute next image version and short sha
+        id: version
+        shell: bash
+        run: |
+          IMAGE_OWNER=$(echo "${{ github.repository }}" | cut -d/ -f1)
+          IMAGE_NAME="ghostfolio"
+          IMAGE="ghcr.io/${IMAGE_OWNER}/${IMAGE_NAME}"
+          TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:${IMAGE_OWNER}/${IMAGE_NAME}:pull" | jq -r .token)
+          TAGS=$(curl -s -H "Authorization: Bearer ${TOKEN}" \
+            "https://ghcr.io/v2/${IMAGE_OWNER}/${IMAGE_NAME}/tags/list" | jq -r '.tags[]? // empty')
+          MAX=$(printf '%s\n' ${TAGS} | grep -E '^[0-9]+\.[0-9]+$' | sort -t. -k1,1n -k2,2n | tail -n 1)
+          if [ -z "$MAX" ]; then
+            MAX="1.6"
+          fi
+          MAJOR=$(echo "$MAX" | cut -d. -f1)
+          MINOR=$(echo "$MAX" | cut -d. -f2)
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "version=${MAJOR}.$((MINOR+1))" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -39,9 +59,10 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ${{ steps.version.outputs.image }}:latest
+            ${{ steps.version.outputs.image }}:${{ steps.version.outputs.version }}
+            ${{ steps.version.outputs.image }}:${{ steps.version.outputs.short_sha }}
           build-args: |
-            IMAGE_TAG=${{ github.sha }}
+            IMAGE_TAG=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
