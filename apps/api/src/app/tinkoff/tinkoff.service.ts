@@ -1,6 +1,7 @@
 import { ImportService } from '@ghostfolio/api/app/import/import.service';
 import { DataProviderService } from '@ghostfolio/api/services/data-provider/data-provider.service';
 import { FetchService } from '@ghostfolio/api/services/fetch/fetch.service';
+import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
 import { PROPERTY_TINKOFF_API_TOKEN } from '@ghostfolio/common/config';
 import {
@@ -62,6 +63,7 @@ export class TinkoffService {
     private readonly dataProviderService: DataProviderService,
     private readonly fetchService: FetchService,
     private readonly importService: ImportService,
+    private readonly prismaService: PrismaService,
     private readonly propertyService: PropertyService
   ) {}
 
@@ -159,6 +161,18 @@ export class TinkoffService {
 
         throw new BadRequestException(error.message);
       });
+
+    if (!isDryRun) {
+      await this.enrichAssetProfiles(activitiesDtoOfSupportedSymbols);
+    }
+
+    for (const { assetProfile, error } of activities.filter(({ error }) => {
+      return error && error.code !== 'IS_DUPLICATE';
+    })) {
+      this.logger.warn(
+        `Failed to import activity for "${assetProfile?.symbol}" (${assetProfile?.dataSource}): ${error?.code}`
+      );
+    }
 
     return {
       accounts: accountOverview,
@@ -291,26 +305,49 @@ export class TinkoffService {
     const type = this.getActivityType(operation.type);
 
     if (!type) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" with unsupported type "${operation.type}"`
+      );
+
       return undefined;
     }
 
     if (!operation.date) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}) due to missing date`
+      );
+
       return undefined;
     }
 
     const instrument = await this.getInstrument({ operation, token });
 
-    if (
-      !instrument?.ticker ||
-      !instrument.classCode ||
-      !TinkoffService.SUPPORTED_CLASS_CODES.includes(instrument.classCode)
-    ) {
+    if (!instrument?.ticker) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}) due to unresolved instrument ${operation.instrumentUid ?? operation.positionUid ?? operation.figi}`
+      );
+
       return undefined;
     }
 
-    const quantity = new Big(operation.quantity ?? '0').abs().toNumber();
+    if (!TinkoffService.SUPPORTED_CLASS_CODES.includes(instrument.classCode)) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker} ${instrument.classCode}) due to unsupported class code`
+      );
+
+      return undefined;
+    }
+
+    const quantity =
+      type === Type.DIVIDEND
+        ? 1
+        : new Big(operation.quantity ?? '0').abs().toNumber();
 
     if (quantity <= 0) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker}) due to quantity ${operation.quantity}`
+      );
+
       return undefined;
     }
 
@@ -325,6 +362,10 @@ export class TinkoffService {
     }
 
     if (unitPrice <= 0) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker}) due to unit price ${price} (payment ${payment})`
+      );
+
       return undefined;
     }
 
@@ -468,6 +509,39 @@ export class TinkoffService {
       );
 
       throw error;
+    }
+  }
+
+  private async enrichAssetProfiles(activitiesDto: CreateOrderDto[]) {
+    const symbols = [...new Set(activitiesDto.map(({ symbol }) => symbol))];
+
+    for (const symbol of symbols) {
+      if (!symbol?.endsWith('.MOEX')) {
+        continue;
+      }
+
+      const ticker = symbol.split('.')[0].toUpperCase();
+
+      try {
+        await this.prismaService.symbolProfile.updateMany({
+          data: {
+            countries: [{ code: 'RU', weight: 1 }],
+            symbolMapping: {
+              MOSCOW_EXCHANGE: symbol,
+              YAHOO: `${ticker}.ME`
+            },
+            url: `https://www.moex.com/ru/issue.aspx?code=${ticker}`
+          },
+          where: {
+            dataSource: DataSource.MOSCOW_EXCHANGE,
+            symbol
+          }
+        });
+      } catch (error) {
+        this.logger.warn(
+          `Failed to enrich asset profile "${symbol}": ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     }
   }
 

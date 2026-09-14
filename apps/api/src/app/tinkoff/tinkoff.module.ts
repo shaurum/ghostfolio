@@ -2,6 +2,7 @@ import { ImportModule } from '@ghostfolio/api/app/import/import.module';
 import { ConfigurationModule } from '@ghostfolio/api/services/configuration/configuration.module';
 import { DataProviderModule } from '@ghostfolio/api/services/data-provider/data-provider.module';
 import { FetchModule } from '@ghostfolio/api/services/fetch/fetch.module';
+import { PrismaModule } from '@ghostfolio/api/services/prisma/prisma.module';
 import { PropertyModule } from '@ghostfolio/api/services/property/property.module';
 
 import { Module } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { TinkoffService } from './tinkoff.service';
     DataProviderModule,
     FetchModule,
     ImportModule,
+    PrismaModule,
     PropertyModule
   ],
   providers: [TinkoffService]
