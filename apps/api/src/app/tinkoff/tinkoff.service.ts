@@ -49,6 +49,7 @@ export class TinkoffService {
   private static readonly PLATFORM_ID = 'tinkoff';
   private static readonly REQUEST_TIMEOUT = ms('30 seconds');
   private static readonly SUPPORTED_CLASS_CODES = [
+    'PSAU',
     'TQBR',
     'TQTF',
     'TQIF',
@@ -390,11 +391,45 @@ export class TinkoffService {
     }
 
     if (unitPrice <= 0) {
-      this.logger.debug(
-        `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker}) due to unit price ${price} (payment ${payment})`
-      );
+      if (
+        type === Type.BUY
+      ) {
+        const symbol = `${instrument.ticker.toUpperCase()}.MOEX`;
 
-      return undefined;
+        try {
+          const quote = (
+            await this.dataProviderService.getQuotes({
+              items: [
+                {
+                  dataSource: DataSource.MOSCOW_EXCHANGE,
+                  symbol
+                }
+              ]
+            })
+          )?.[
+            getAssetProfileIdentifier({
+              dataSource: DataSource.MOSCOW_EXCHANGE,
+              symbol
+            })
+          ];
+
+          if (quote?.marketPrice) {
+            unitPrice = quote.marketPrice;
+          }
+        } catch (error) {
+          this.logger.debug(
+            `Could not resolve a market price for "${symbol}": ${error instanceof Error ? error.message : String(error)}`
+          );
+        }
+      }
+
+      if (unitPrice <= 0) {
+        this.logger.debug(
+          `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker}) due to unit price ${price} (payment ${payment})`
+        );
+
+        return undefined;
+      }
     }
 
     return {
@@ -488,6 +523,7 @@ export class TinkoffService {
       case 'OPERATION_TYPE_BUY':
       case 'OPERATION_TYPE_BUY_CARD':
       case 'OPERATION_TYPE_BUY_MARGIN':
+      case 'OPERATION_TYPE_INPUT_SECURITIES':
         return Type.BUY;
       case 'OPERATION_TYPE_SELL':
       case 'OPERATION_TYPE_SELL_CARD':
