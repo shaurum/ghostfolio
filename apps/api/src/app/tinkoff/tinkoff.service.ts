@@ -367,10 +367,24 @@ export class TinkoffService {
       return undefined;
     }
 
-    const quantity =
-      type === Type.DIVIDEND
-        ? 1
-        : new Big(operation.quantity ?? '0').abs().toNumber();
+    const payment = this.toNumber(operation.payment);
+    const price = this.toNumber(operation.price);
+    let unitPrice: number;
+    let quantity: number;
+
+    if (
+      operation.type === 'OPERATION_TYPE_BOND_REPAYMENT_FULL' &&
+      payment > 0
+    ) {
+      quantity = Math.round(new Big(payment).div(1000).toNumber());
+      unitPrice = 1000;
+    } else if (type === Type.DIVIDEND) {
+      quantity = 1;
+      unitPrice = new Big(payment).abs().toNumber();
+    } else {
+      quantity = new Big(operation.quantity ?? '0').abs().toNumber();
+      unitPrice = new Big(price).abs().toNumber();
+    }
 
     if (quantity <= 0) {
       this.logger.debug(
@@ -378,16 +392,6 @@ export class TinkoffService {
       );
 
       return undefined;
-    }
-
-    const payment = this.toNumber(operation.payment);
-    const price = this.toNumber(operation.price);
-    let unitPrice: number;
-
-    if (type === Type.DIVIDEND) {
-      unitPrice = new Big(payment).abs().toNumber();
-    } else {
-      unitPrice = new Big(price).abs().toNumber();
     }
 
     if (unitPrice <= 0) {
@@ -442,7 +446,7 @@ export class TinkoffService {
       dataSource: DataSource.MOSCOW_EXCHANGE,
       date: operation.date,
       fee: this.toNumber(operation.commission),
-      quantity: type === Type.DIVIDEND ? 1 : quantity,
+      quantity,
       symbol: `${instrument.ticker.toUpperCase()}.MOEX`,
       type,
       unitPrice
@@ -528,6 +532,8 @@ export class TinkoffService {
       case 'OPERATION_TYPE_SELL':
       case 'OPERATION_TYPE_SELL_CARD':
       case 'OPERATION_TYPE_SELL_MARGIN':
+      case 'OPERATION_TYPE_BOND_REPAYMENT':
+      case 'OPERATION_TYPE_BOND_REPAYMENT_FULL':
         return Type.SELL;
       case 'OPERATION_TYPE_COUPON':
       case 'OPERATION_TYPE_DIVIDEND':
