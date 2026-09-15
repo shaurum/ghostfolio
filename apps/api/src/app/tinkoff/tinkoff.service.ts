@@ -94,7 +94,11 @@ export class TinkoffService {
 
     try {
       const probe = await this.post<TinkoffInstrumentResponse>({
-        body: { id: 'BBG004730Z09', idType: TinkoffService.INSTRUMENT_ID_TYPE_FIGI },
+        body: {
+          id: 'BBG004730N88',
+          idType: TinkoffService.INSTRUMENT_ID_TYPE_FIGI,
+          classCode: 'TQBR'
+        },
         path: TinkoffService.GET_INSTRUMENT_BY_PATH,
         token
       });
