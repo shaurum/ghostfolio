@@ -7539,6 +7539,34 @@
           <context context-type="linenumber">97</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="sector.CONSUMER_STAPLES" datatype="html">
+        <source>Consumer Staples</source>
+        <target state="translated">Товары повседневного спроса</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">libs/ui/src/lib/i18n.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="sector.FINANCIALS" datatype="html">
+        <source>Financials</source>
+        <target state="translated">Финансы</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">libs/ui/src/lib/i18n.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="sector.MATERIALS" datatype="html">
+        <source>Materials</source>
+        <target state="translated">Материалы</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">libs/ui/src/lib/i18n.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="sector.TELECOMMUNICATIONS" datatype="html">
+        <source>Telecommunications</source>
+        <target state="translated">Телекоммуникации</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">libs/ui/src/lib/i18n.ts</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="7522916136412124285" datatype="html">
         <source>to use our referral link and get a Ghostfolio Premium membership for one year</source>
         <target state="translated">чтобы использовать нашу реферальную ссылку и получить подписку Ghostfolio Premium на один год</target>

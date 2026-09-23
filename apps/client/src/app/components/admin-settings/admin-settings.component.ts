@@ -88,6 +88,7 @@ export class GfAdminSettingsComponent implements OnInit {
   public hasTinkoffApiToken: boolean;
   public imageTag: string;
   public isDeletingTinkoff = false;
+  public isEnriching = false;
   public isGhostfolioApiKeyValid: boolean;
   public isLoading = false;
   public isSyncingTinkoff = false;
@@ -162,6 +163,39 @@ export class GfAdminSettingsComponent implements OnInit {
       confirmType: ConfirmationDialogType.Warn,
       title: 'Do you really want to delete all activities imported from Tinkoff?'
     });
+  }
+
+  public onEnrichFromSheet() {
+    this.isEnriching = true;
+    this.tinkoffSyncResult = undefined;
+
+    this.adminService
+      .enrichFromSheet()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({
+          matchedRowsCount,
+          totalRowsCount,
+          updatedProfilesCount
+        }) => {
+          this.isEnriching = false;
+          this.changeDetectorRef.markForCheck();
+
+          this.notificationService.alert({
+            message: `Enriched ${updatedProfilesCount} asset profiles from ${matchedRowsCount} of ${totalRowsCount} sheet rows`,
+            title: 'The icons, regions and sectors were updated'
+          });
+        },
+        error: (error) => {
+          this.isEnriching = false;
+          this.changeDetectorRef.markForCheck();
+
+          this.notificationService.alert({
+            message: error?.error?.message ?? error?.message,
+            title: 'Updating the icons, regions and sectors failed'
+          });
+        }
+      });
   }
 
   public onRemoveGhostfolioApiKey() {

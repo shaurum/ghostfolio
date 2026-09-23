@@ -12,6 +12,7 @@ import {
 } from '@ghostfolio/common/dtos';
 import {
   AdminData,
+  AdminEnrichmentResponse,
   AdminJobs,
   AdminUserResponse,
   AdminUsersResponse,
@@ -268,6 +269,13 @@ export class AdminService {
   public deleteTinkoffActivities() {
     return this.http.post<AdminTinkoffDeleteResponse>(
       '/api/v1/admin/tinkoff/delete-all',
+      null
+    );
+  }
+
+  public enrichFromSheet() {
+    return this.http.post<AdminEnrichmentResponse>(
+      '/api/v1/admin/enrichment/sheet',
       null
     );
   }

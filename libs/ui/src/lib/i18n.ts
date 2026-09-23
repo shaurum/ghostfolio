@@ -93,13 +93,17 @@ const locales = {
   'Communication Services': $localize`Communication Services`,
   'Consumer Cyclical': $localize`Consumer Cyclical`,
   'Consumer Defensive': $localize`Consumer Defensive`,
+  'Consumer Staples': $localize`:@@sector.CONSUMER_STAPLES:Consumer Staples`,
   Energy: $localize`Energy`,
+  Financials: $localize`:@@sector.FINANCIALS:Financials`,
   'Financial Services': $localize`Financial Services`,
   Healthcare: $localize`Healthcare`,
   Industrials: $localize`Industrials`,
+  Materials: $localize`:@@sector.MATERIALS:Materials`,
   Other: $localize`Other`,
   'Real Estate': $localize`Real Estate`,
   Technology: $localize`Technology`,
+  Telecommunications: $localize`:@@sector.TELECOMMUNICATIONS:Telecommunications`,
   Utilities: $localize`Utilities`,
 
   // Product categories (CRYPTOCURRENCY is defined above under AssetSubClass)

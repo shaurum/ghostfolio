@@ -265,6 +265,30 @@
   </div>
   <div class="mb-5 row">
     <div class="col">
+      <h2 class="text-center">Asset Enrichment</h2>
+      <div class="justify-content-center mb-2 row">
+        <small class="text-muted text-center">
+          Sync icons, regions and sectors of Moscow Exchange securities from
+          the Google Sheet
+        </small>
+      </div>
+      <div class="justify-content-center mb-2 row">
+        <button
+          class="special text-nowrap"
+          mat-flat-button
+          [disabled]="isEnriching"
+          (click)="onEnrichFromSheet()"
+        >
+          Sync icons, regions & sectors
+        </button>
+      </div>
+      @if (isEnriching) {
+        <mat-progress-bar mode="indeterminate" />
+      }
+    </div>
+  </div>
+  <div class="mb-5 row">
+    <div class="col">
       <h2 class="text-center" i18n>Platforms</h2>
       <gf-admin-platform [locale]="user?.settings?.locale ?? DEFAULT_LOCALE" />
     </div>
