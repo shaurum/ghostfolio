@@ -460,66 +460,70 @@ export class TinkoffService {
     operation: TinkoffOperation;
     token: string;
   }): Promise<TinkoffInstrument | undefined> {
-    const request = this.getInstrumentRequest(operation);
+    const requests = this.getInstrumentRequests(operation);
 
-    if (!request) {
+    if (requests.length === 0) {
       return undefined;
     }
 
-    if (this.instrumentsCache.has(request.id)) {
-      return this.instrumentsCache.get(request.id);
-    }
-
-    try {
-      this.logger.debug(
-        `GetInstrumentBy request: idType=${request.idType}, id=${request.id}`
-      );
-
-      const response = await this.post<TinkoffInstrumentResponse>({
-        body: request,
-        path: TinkoffService.GET_INSTRUMENT_BY_PATH,
-        token
-      });
-
-      if (response.instrument) {
-        this.instrumentsCache.set(request.id, response.instrument);
+    for (const request of requests) {
+      if (this.instrumentsCache.has(request.id)) {
+        return this.instrumentsCache.get(request.id);
       }
 
-      return response.instrument;
-    } catch (error) {
-      this.logger.warn(
-        `GetInstrumentBy failed for id=${request.id} idType=${request.idType}: ${error instanceof Error ? error.message : String(error)}`
-      );
+      try {
+        this.logger.debug(
+          `GetInstrumentBy request: idType=${request.idType}, id=${request.id}`
+        );
 
-      return undefined;
-    }
-  }
+        const response = await this.post<TinkoffInstrumentResponse>({
+          body: request,
+          path: TinkoffService.GET_INSTRUMENT_BY_PATH,
+          token
+        });
 
-  private getInstrumentRequest(
-    operation: TinkoffOperation
-  ): TinkoffInstrumentRequest | undefined {
-    if (operation.instrumentUid) {
-      return {
-        id: operation.instrumentUid,
-        idType: TinkoffService.INSTRUMENT_ID_TYPE_UID
-      };
-    }
+        if (response.instrument) {
+          this.instrumentsCache.set(request.id, response.instrument);
 
-    if (operation.positionUid) {
-      return {
-        id: operation.positionUid,
-        idType: TinkoffService.INSTRUMENT_ID_TYPE_POSITION_UID
-      };
-    }
-
-    if (operation.figi) {
-      return {
-        id: operation.figi,
-        idType: TinkoffService.INSTRUMENT_ID_TYPE_FIGI
-      };
+          return response.instrument;
+        }
+      } catch (error) {
+        this.logger.warn(
+          `GetInstrumentBy failed for id=${request.id} idType=${request.idType}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     }
 
     return undefined;
+  }
+
+  private getInstrumentRequests(
+    operation: TinkoffOperation
+  ): TinkoffInstrumentRequest[] {
+    const requests: TinkoffInstrumentRequest[] = [];
+
+    if (operation.instrumentUid) {
+      requests.push({
+        id: operation.instrumentUid,
+        idType: TinkoffService.INSTRUMENT_ID_TYPE_UID
+      });
+    }
+
+    if (operation.positionUid) {
+      requests.push({
+        id: operation.positionUid,
+        idType: TinkoffService.INSTRUMENT_ID_TYPE_POSITION_UID
+      });
+    }
+
+    if (operation.figi) {
+      requests.push({
+        id: operation.figi,
+        idType: TinkoffService.INSTRUMENT_ID_TYPE_FIGI
+      });
+    }
+
+    return requests;
   }
 
   private getActivityType(operationType: string): Type | undefined {
