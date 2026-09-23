@@ -9,13 +9,19 @@ import {
   CreateOrderDto
 } from '@ghostfolio/common/dtos';
 import { getAssetProfileIdentifier } from '@ghostfolio/common/helper';
-import { AdminTinkoffSyncResponse } from '@ghostfolio/common/interfaces';
+import {
+  AdminTinkoffDeleteResponse,
+  AdminTinkoffSyncResponse,
+  Filter
+} from '@ghostfolio/common/interfaces';
 import { UserWithSettings } from '@ghostfolio/common/types';
 
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DataSource, Type } from '@prisma/client';
 import { Big } from 'big.js';
 import ms from 'ms';
+
+import { ActivitiesService } from '@ghostfolio/api/app/activities/activities.service';
 
 import {
   TinkoffAccount,
@@ -61,12 +67,55 @@ export class TinkoffService {
   private readonly instrumentsCache = new Map<string, TinkoffInstrument>();
 
   public constructor(
+    private readonly activitiesService: ActivitiesService,
     private readonly dataProviderService: DataProviderService,
     private readonly fetchService: FetchService,
     private readonly importService: ImportService,
     private readonly prismaService: PrismaService,
     private readonly propertyService: PropertyService
   ) {}
+
+  public async deleteAllImported({
+    user
+  }: {
+    user: UserWithSettings;
+  }): Promise<AdminTinkoffDeleteResponse> {
+    const accounts = await this.prismaService.account.findMany({
+      select: { id: true },
+      where: {
+        id: { startsWith: TinkoffService.MANUAL_ACTIVITY_PREFIX },
+        userId: user.id
+      }
+    });
+
+    if (accounts.length === 0) {
+      return { deletedAccountsCount: 0, deletedActivitiesCount: 0 };
+    }
+
+    const filters: Filter[] = accounts.map(({ id }) => {
+      return { id, type: 'ACCOUNT' };
+    });
+
+    const deletedActivitiesCount =
+      await this.activitiesService.deleteActivities({
+        filters,
+        userId: user.id
+      });
+
+    const { count: deletedAccountsCount } =
+      await this.prismaService.account.deleteMany({
+        where: {
+          id: { in: accounts.map(({ id }) => id) },
+          userId: user.id
+        }
+      });
+
+    this.logger.log(
+      `Deleted ${deletedActivitiesCount} activities in ${deletedAccountsCount} Tinkoff accounts for user "${user.id}"`
+    );
+
+    return { deletedAccountsCount, deletedActivitiesCount };
+  }
 
   public async sync({
     isDryRun,
@@ -424,28 +473,50 @@ export class TinkoffService {
     }
 
     if (unitPrice <= 0) {
-      if (
-        type === Type.BUY
-      ) {
+      if (type === Type.BUY && operation.date) {
+        // Use the historical market price at the operation date (not the
+        // live quote): the price must be deterministic across syncs,
+        // otherwise duplicate detection (strict unitPrice equality) fails
+        // and every sync creates another activity
         try {
-          const quote = (
-            await this.dataProviderService.getQuotes({
-              items: [
+          const dateString = operation.date.slice(0, 10);
+
+          const historical =
+            await this.dataProviderService.getHistoricalRaw({
+              assetProfileIdentifiers: [
                 {
                   dataSource: DataSource.MOSCOW_EXCHANGE,
                   symbol
                 }
-              ]
-            })
-          )?.[
-            getAssetProfileIdentifier({
-              dataSource: DataSource.MOSCOW_EXCHANGE,
-              symbol
-            })
-          ];
+              ],
+              from: new Date(
+                new Date(operation.date).getTime() - 7 * 24 * 3600 * 1000
+              ),
+              to: new Date(operation.date)
+            });
 
-          if (quote?.marketPrice) {
-            unitPrice = quote.marketPrice;
+          const prices =
+            historical[
+              getAssetProfileIdentifier({
+                dataSource: DataSource.MOSCOW_EXCHANGE,
+                symbol
+              })
+            ] ?? {};
+
+          const latestDateString = Object.keys(prices)
+            .filter((key) => {
+              return key <= dateString;
+            })
+            .sort()
+            .pop();
+
+          const marketPrice =
+            latestDateString === undefined
+              ? undefined
+              : prices[latestDateString]?.marketPrice;
+
+          if (marketPrice) {
+            unitPrice = marketPrice;
           }
         } catch (error) {
           this.logger.debug(

@@ -43,6 +43,7 @@ import type { AccountResponse } from './responses/account-response.interface';
 import type { AccountsResponse } from './responses/accounts-response.interface';
 import type { ActivitiesResponse } from './responses/activities-response.interface';
 import type { ActivityResponse } from './responses/activity-response.interface';
+import type { AdminTinkoffDeleteResponse } from './responses/admin-tinkoff-delete-response.interface';
 import type { AdminTinkoffSyncResponse } from './responses/admin-tinkoff-sync-response.interface';
 import type { AdminUserResponse } from './responses/admin-user-response.interface';
 import type { AdminUsersResponse } from './responses/admin-users-response.interface';
@@ -118,6 +119,7 @@ export {
   AdminUser,
   AdminUserResponse,
   AdminUsersResponse,
+  AdminTinkoffDeleteResponse,
   AdminTinkoffSyncResponse,
   AiPromptResponse,
   AiServiceHealthResponse,

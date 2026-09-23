@@ -1,4 +1,5 @@
 import { ImportModule } from '@ghostfolio/api/app/import/import.module';
+import { ActivitiesModule } from '@ghostfolio/api/app/activities/activities.module';
 import { ConfigurationModule } from '@ghostfolio/api/services/configuration/configuration.module';
 import { DataProviderModule } from '@ghostfolio/api/services/data-provider/data-provider.module';
 import { FetchModule } from '@ghostfolio/api/services/fetch/fetch.module';
@@ -13,6 +14,7 @@ import { TinkoffService } from './tinkoff.service';
 @Module({
   controllers: [TinkoffController],
   imports: [
+    ActivitiesModule,
     ConfigurationModule,
     DataProviderModule,
     FetchModule,

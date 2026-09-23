@@ -87,6 +87,7 @@ export class GfAdminSettingsComponent implements OnInit {
   public hasGhostfolioApiKey: boolean;
   public hasTinkoffApiToken: boolean;
   public imageTag: string;
+  public isDeletingTinkoff = false;
   public isGhostfolioApiKeyValid: boolean;
   public isLoading = false;
   public isSyncingTinkoff = false;
@@ -126,6 +127,41 @@ export class GfAdminSettingsComponent implements OnInit {
 
   public isGhostfolioDataProvider(provider: DataProviderInfo): boolean {
     return provider.dataSource === 'GHOSTFOLIO';
+  }
+
+  public onDeleteTinkoffActivities() {
+    this.notificationService.confirm({
+      confirmFn: () => {
+        this.isDeletingTinkoff = true;
+        this.tinkoffSyncResult = undefined;
+
+        this.adminService
+          .deleteTinkoffActivities()
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe({
+            next: ({ deletedAccountsCount, deletedActivitiesCount }) => {
+              this.isDeletingTinkoff = false;
+              this.changeDetectorRef.markForCheck();
+
+              this.notificationService.alert({
+                message: `Deleted ${deletedActivitiesCount} activities in ${deletedAccountsCount} accounts`,
+                title: 'The Tinkoff data was deleted'
+              });
+            },
+            error: (error) => {
+              this.isDeletingTinkoff = false;
+              this.changeDetectorRef.markForCheck();
+
+              this.notificationService.alert({
+                message: error?.error?.message ?? error?.message,
+                title: 'Deleting the Tinkoff data failed'
+              });
+            }
+          });
+      },
+      confirmType: ConfirmationDialogType.Warn,
+      title: 'Do you really want to delete all activities imported from Tinkoff?'
+    });
   }
 
   public onRemoveGhostfolioApiKey() {

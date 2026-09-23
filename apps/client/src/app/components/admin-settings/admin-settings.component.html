@@ -225,7 +225,7 @@
         <button
           class="mr-2 text-nowrap"
           mat-stroked-button
-          [disabled]="isSyncingTinkoff || !hasTinkoffApiToken"
+          [disabled]="isSyncingTinkoff || isDeletingTinkoff || !hasTinkoffApiToken"
           (click)="onSyncTinkoff(true)"
         >
           Preview
@@ -233,13 +233,21 @@
         <button
           class="special text-nowrap"
           mat-flat-button
-          [disabled]="isSyncingTinkoff || !hasTinkoffApiToken"
+          [disabled]="isSyncingTinkoff || isDeletingTinkoff || !hasTinkoffApiToken"
           (click)="onSyncTinkoff(false)"
         >
           Sync now
         </button>
+        <button
+          class="ml-2 text-nowrap"
+          mat-stroked-button
+          [disabled]="isSyncingTinkoff || isDeletingTinkoff || !hasTinkoffApiToken"
+          (click)="onDeleteTinkoffActivities()"
+        >
+          Delete all imported
+        </button>
       </div>
-      @if (isSyncingTinkoff) {
+      @if (isSyncingTinkoff || isDeletingTinkoff) {
         <mat-progress-bar mode="indeterminate" />
       }
       @if (tinkoffSyncResult) {

@@ -15,6 +15,7 @@ import {
   AdminJobs,
   AdminUserResponse,
   AdminUsersResponse,
+  AdminTinkoffDeleteResponse,
   AdminTinkoffSyncResponse,
   AssetProfileIdentifier,
   DataProviderGhostfolioStatusResponse,
@@ -262,6 +263,13 @@ export class AdminService {
 
   public syncDemoUserAccount() {
     return this.http.get<void>('/api/v1/admin/demo-user/sync');
+  }
+
+  public deleteTinkoffActivities() {
+    return this.http.post<AdminTinkoffDeleteResponse>(
+      '/api/v1/admin/tinkoff/delete-all',
+      null
+    );
   }
 
   public syncTinkoff({ dryRun }: { dryRun: boolean }) {
