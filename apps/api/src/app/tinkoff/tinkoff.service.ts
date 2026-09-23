@@ -382,7 +382,15 @@ export class TinkoffService {
       quantity = 1;
       unitPrice = new Big(payment).abs().toNumber();
     } else {
-      quantity = new Big(operation.quantity ?? '0').abs().toNumber();
+      // Prefer quantityDone (actually executed) over quantity (requested in
+      // the order): partially filled orders with cancelled remainder report
+      // the full requested amount in "quantity"
+      // (e.g. buy 1 bond of 8 ordered, rest cancelled)
+      quantity = new Big(
+        operation.quantityDone ?? operation.quantity ?? '0'
+      )
+        .abs()
+        .toNumber();
       unitPrice = new Big(price).abs().toNumber();
     }
 
