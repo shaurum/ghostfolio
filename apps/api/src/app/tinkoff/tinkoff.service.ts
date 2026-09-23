@@ -140,9 +140,20 @@ export class TinkoffService {
         const operations = await this.getOperations({ accountId: id, token });
         const accountId = `${TinkoffService.MANUAL_ACTIVITY_PREFIX}${id}`;
 
-        for (const operation of operations) {
+        // Process oldest first so the running balance per symbol is correct
+        // (BOND_REPAYMENT_FULL closes the remaining position)
+        const sortedOperations = [...operations].sort((a, b) => {
+          return (
+            new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime()
+          );
+        });
+
+        const balances = new Map<string, number>();
+
+        for (const operation of sortedOperations) {
           const activity = await this.mapOperationToActivity({
             accountId,
+            balances,
             operation,
             token
           });
@@ -324,10 +335,12 @@ export class TinkoffService {
 
   private async mapOperationToActivity({
     accountId,
+    balances,
     operation,
     token
   }: {
     accountId: string;
+    balances: Map<string, number>;
     operation: TinkoffOperation;
     token: string;
   }): Promise<CreateOrderDto | undefined> {
@@ -369,29 +382,37 @@ export class TinkoffService {
 
     const payment = this.toNumber(operation.payment);
     const price = this.toNumber(operation.price);
+    const symbol = `${instrument.ticker.toUpperCase()}.MOEX`;
     let unitPrice: number;
     let quantity: number;
 
-    if (
-      operation.type === 'OPERATION_TYPE_BOND_REPAYMENT_FULL' &&
-      payment > 0
-    ) {
-      quantity = Math.round(new Big(payment).div(1000).toNumber());
-      unitPrice = 1000;
-    } else if (type === Type.DIVIDEND) {
+    if (type === Type.DIVIDEND) {
       quantity = 1;
       unitPrice = new Big(payment).abs().toNumber();
     } else {
-      // Prefer quantityDone (actually executed) over quantity (requested in
-      // the order): partially filled orders with cancelled remainder report
-      // the full requested amount in "quantity"
-      // (e.g. buy 1 bond of 8 ordered, rest cancelled)
       quantity = new Big(
         operation.quantityDone ?? operation.quantity ?? '0'
       )
         .abs()
         .toNumber();
       unitPrice = new Big(price).abs().toNumber();
+    }
+
+    if (operation.type === 'OPERATION_TYPE_BOND_REPAYMENT_FULL') {
+      // Full redemption closes the whole remaining position at the
+      // payment-implied price (remaining nominal per bond, e.g. amortized)
+      const balance = balances.get(symbol) ?? 0;
+
+      if (balance <= 0 || payment <= 0) {
+        this.logger.debug(
+          `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker}) due to zero balance or payment`
+        );
+
+        return undefined;
+      }
+
+      quantity = balance;
+      unitPrice = new Big(payment).div(balance).toNumber();
     }
 
     if (quantity <= 0) {
@@ -406,8 +427,6 @@ export class TinkoffService {
       if (
         type === Type.BUY
       ) {
-        const symbol = `${instrument.ticker.toUpperCase()}.MOEX`;
-
         try {
           const quote = (
             await this.dataProviderService.getQuotes({
@@ -444,6 +463,12 @@ export class TinkoffService {
       }
     }
 
+    if (type === Type.BUY) {
+      balances.set(symbol, (balances.get(symbol) ?? 0) + quantity);
+    } else if (type === Type.SELL) {
+      balances.set(symbol, (balances.get(symbol) ?? 0) - quantity);
+    }
+
     return {
       accountId,
       comment: operation.name || undefined,
@@ -455,7 +480,7 @@ export class TinkoffService {
       date: operation.date,
       fee: this.toNumber(operation.commission),
       quantity,
-      symbol: `${instrument.ticker.toUpperCase()}.MOEX`,
+      symbol,
       type,
       unitPrice
     };
@@ -544,9 +569,9 @@ export class TinkoffService {
       case 'OPERATION_TYPE_SELL':
       case 'OPERATION_TYPE_SELL_CARD':
       case 'OPERATION_TYPE_SELL_MARGIN':
-      case 'OPERATION_TYPE_BOND_REPAYMENT':
       case 'OPERATION_TYPE_BOND_REPAYMENT_FULL':
         return Type.SELL;
+      case 'OPERATION_TYPE_BOND_REPAYMENT':
       case 'OPERATION_TYPE_COUPON':
       case 'OPERATION_TYPE_DIVIDEND':
       case 'OPERATION_TYPE_PAYMENT':
