@@ -121,11 +121,22 @@ export class EnrichmentService {
       .split(/\r?\n/)
       .filter((line) => line.trim() !== '');
 
-    if (lines.length < 2) {
+    // The header is the first line containing the column names
+    // (the sheet may start with empty rows)
+    const headerIndex = lines.findIndex((line) => {
+      const normalizedLine = line.toLowerCase();
+
+      return (
+        normalizedLine.includes('isin') &&
+        (normalizedLine.includes('тикер') || normalizedLine.includes('ticker'))
+      );
+    });
+
+    if (headerIndex < 0 || headerIndex >= lines.length - 1) {
       return [];
     }
 
-    const headers = this.parseCsvLine(lines[0]).map((header) => {
+    const headers = this.parseCsvLine(lines[headerIndex]).map((header) => {
       return header.trim().toLowerCase();
     });
 
@@ -145,7 +156,7 @@ export class EnrichmentService {
       ticker: string;
     }[] = [];
 
-    for (const line of lines.slice(1)) {
+    for (const line of lines.slice(headerIndex + 1)) {
       const cells = this.parseCsvLine(line);
       const cellAt = (index: number): string => {
         return index >= 0 ? (cells[index] ?? '').trim() : '';
