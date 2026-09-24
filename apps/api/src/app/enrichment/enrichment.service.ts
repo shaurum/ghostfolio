@@ -21,12 +21,15 @@ export class EnrichmentService {
 
   public async enrichFromSheet(): Promise<AdminEnrichmentResponse> {
     let csv: string;
+    let status = 0;
 
     try {
       const response = await this.fetchService.fetch(
         EnrichmentService.SHEET_CSV_URL,
         { signal: AbortSignal.timeout(EnrichmentService.REQUEST_TIMEOUT) }
       );
+
+      status = response.status;
 
       if (!response.ok) {
         throw new Error(`status ${response.status}`);
@@ -39,7 +42,17 @@ export class EnrichmentService {
       );
     }
 
+    this.logger.log(
+      `Fetched the Google Sheet: status ${status}, ${csv.length} characters`
+    );
+
     const rows = this.parseSheetCsv(csv);
+
+    if (rows.length === 0) {
+      throw new BadRequestException(
+        `The Google Sheet returned no data rows (status ${status}, ${csv.length} characters, preview: ${(csv ?? '').slice(0, 200)})`
+      );
+    }
     const updatedSymbols: string[] = [];
     let updatedProfilesCount = 0;
 
