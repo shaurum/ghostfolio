@@ -18,6 +18,7 @@ import {
   AdminUsersResponse,
   AdminTinkoffDeleteResponse,
   AdminTinkoffSyncResponse,
+  AdminTinkoffAccountResponse,
   AssetProfileIdentifier,
   DataProviderGhostfolioStatusResponse,
   DataProviderHistoricalResponse,
@@ -286,6 +287,23 @@ export class AdminService {
     return this.http.post<AdminTinkoffSyncResponse>(
       '/api/v1/admin/tinkoff/sync',
       null,
+      { params }
+    );
+  }
+
+  public getTinkoffAccounts() {
+    return this.http.post<AdminTinkoffAccountResponse>(
+      '/api/v1/admin/tinkoff/accounts',
+      null
+    );
+  }
+
+  public syncTinkoffWithAccounts({ dryRun, accountIds }: { dryRun: boolean; accountIds?: string[] }) {
+    const params = new HttpParams().set('dryRun', String(dryRun));
+
+    return this.http.post<AdminTinkoffSyncResponse>(
+      '/api/v1/admin/tinkoff/sync',
+      { accountIds },
       { params }
     );
   }

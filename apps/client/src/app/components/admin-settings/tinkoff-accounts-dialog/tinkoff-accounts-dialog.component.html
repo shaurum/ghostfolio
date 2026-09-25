@@ -1,0 +1,88 @@
+<gf-dialog-header
+  [title]="'Tinkoff Accounts'"
+  (closeButtonClicked)="onCancel()"
+/>
+
+<div class="flex-grow-1" mat-dialog-content>
+  @if (isLoading) {
+    <div class="d-flex justify-content-center align-items-center flex-grow-1">
+      <mat-spinner [diameter]="40" />
+    </div>
+  } @else {
+    <table
+      class="gf-table w-100"
+      mat-table
+      [dataSource]="accountsDataSource"
+    >
+      <ng-container matColumnDef="select" sticky>
+        <th *matHeaderCellDef class="px-1" mat-header-cell>
+          <mat-checkbox
+            color="primary"
+            [checked]="isAllSelected()"
+            [indeterminate]="isSomeSelected()"
+            (change)="toggleAll()"
+          />
+        </th>
+        <td *matCellDef="let account" class="px-1" mat-cell>
+          <mat-checkbox
+            color="primary"
+            [checked]="selectedAccounts.isSelected(account.id)"
+            (change)="$event ? selectedAccounts.toggle(account.id) : null"
+            (click)="$event.stopPropagation()"
+          />
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="name">
+        <th *matHeaderCellDef class="px-1" mat-header-cell>
+          <ng-container i18n>Name</ng-container>
+        </th>
+        <td *matCellDef="let account" class="px-1" mat-cell>
+          {{ account.name }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="type">
+        <th *matHeaderCellDef class="px-1" mat-header-cell>
+          <ng-container i18n>Type</ng-container>
+        </th>
+        <td *matCellDef="let account" class="px-1" mat-cell>
+          <span class="badge badge-secondary">{{ account.type }}</span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="status">
+        <th *matHeaderCellDef class="px-1" mat-header-cell>
+          <ng-container i18n>Status</ng-container>
+        </th>
+        <td *matCellDef="let account" class="px-1" mat-cell>
+          <span
+            class="badge"
+            [class.badge-success]="account.status === 'OPEN'"
+            [class.badge-warning]="account.status !== 'OPEN'"
+          >
+            {{ account.status }}
+          </span>
+        </td>
+      </ng-container>
+
+      <tr *matHeaderRowDef="['select', 'name', 'type', 'status']" mat-header-row></tr>
+      <tr *matRowDef="let row; columns: ['select', 'name', 'type', 'status']" mat-row></tr>
+    </table>
+  }
+</div>
+
+<div class="d-flex justify-content-end mt-3" mat-dialog-actions>
+  <button mat-button (click)="onCancel()">
+    <ng-container i18n>Cancel</ng-container>
+  </button>
+  <button
+    class="ml-1"
+    color="primary"
+    mat-flat-button
+    [disabled]="selectedAccounts.selected.length === 0"
+    (click)="onConfirm()"
+  >
+    <ng-container i18n>Select</ng-container>
+  </button>
+</div>

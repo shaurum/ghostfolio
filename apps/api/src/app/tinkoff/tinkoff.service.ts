@@ -12,6 +12,7 @@ import { getAssetProfileIdentifier } from '@ghostfolio/common/helper';
 import {
   AdminTinkoffDeleteResponse,
   AdminTinkoffSyncResponse,
+  AdminTinkoffAccountResponse,
   Filter
 } from '@ghostfolio/common/interfaces';
 import { UserWithSettings } from '@ghostfolio/common/types';
@@ -117,13 +118,7 @@ export class TinkoffService {
     return { deletedAccountsCount, deletedActivitiesCount };
   }
 
-  public async sync({
-    isDryRun,
-    user
-  }: {
-    isDryRun: boolean;
-    user: UserWithSettings;
-  }): Promise<AdminTinkoffSyncResponse> {
+  public async getAccountsForPreview(): Promise<AdminTinkoffAccountResponse> {
     const token = (
       await this.propertyService.getByKey<string>(PROPERTY_TINKOFF_API_TOKEN)
     )?.trim();
@@ -139,6 +134,78 @@ export class TinkoffService {
     if (accounts.length === 0) {
       throw new BadRequestException(
         'No Tinkoff accounts have been found for the API token'
+      );
+    }
+
+    try {
+      const probe = await this.post<TinkoffInstrumentResponse>({
+        body: {
+          id: 'BBG004730N88',
+          idType: TinkoffService.INSTRUMENT_ID_TYPE_FIGI,
+          classCode: 'TQBR'
+        },
+        path: TinkoffService.GET_INSTRUMENT_BY_PATH,
+        token
+      });
+
+      if (!probe.instrument) {
+        throw new Error('empty instrument');
+      }
+    } catch (error) {
+      this.logger.error(
+        `Instrument API probe failed: ${error instanceof Error ? error.message : String(error)}`
+      );
+
+      throw new BadRequestException(
+        'The Tinkoff API token does not have access to instruments. Please create a Read-only or Full-access token (not Sandbox) in T-Invest settings'
+      );
+    }
+
+    return {
+      accounts: accounts.map(({ id, name, type, status }) => ({
+        id,
+        name,
+        type,
+        status
+      }))
+    };
+  }
+
+  public async sync({
+    isDryRun,
+    user,
+    accountIds
+  }: {
+    isDryRun: boolean;
+    user: UserWithSettings;
+    accountIds?: string[];
+  }): Promise<AdminTinkoffSyncResponse> {
+    const token = (
+      await this.propertyService.getByKey<string>(PROPERTY_TINKOFF_API_TOKEN)
+    )?.trim();
+
+    if (!token) {
+      throw new BadRequestException(
+        'The Tinkoff API token is not configured in the admin settings'
+      );
+    }
+
+    const allAccounts = await this.getAccounts(token);
+
+    if (allAccounts.length === 0) {
+      throw new BadRequestException(
+        'No Tinkoff accounts have been found for the API token'
+      );
+    }
+
+    // Filter accounts if accountIds provided
+    const accounts = accountIds?.length
+      ? allAccounts.filter((account) => accountIds.includes(account.id))
+      : allAccounts;
+
+    if (accounts.length === 0) {
+      throw new BadRequestException(
+        'No matching Tinkoff accounts found for the provided account IDs'
       );
     }
 

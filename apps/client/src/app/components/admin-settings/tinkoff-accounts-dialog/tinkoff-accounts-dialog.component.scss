@@ -1,0 +1,29 @@
+@use '@angular/material' as mat;
+
+:host {
+  display: block;
+  min-width: 40rem;
+
+  .mat-mdc-dialog-content {
+    max-height: 50vh;
+  }
+
+  .mat-mdc-table {
+    width: 100%;
+  }
+
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+  }
+
+  .badge-success {
+    background-color: rgba(var(--palette-success-500), 0.15);
+    color: rgba(var(--palette-success-500), 1);
+  }
+
+  .badge-warning {
+    background-color: rgba(var(--palette-warning-500), 0.15);
+    color: rgba(var(--palette-warning-500), 1);
+  }
+}

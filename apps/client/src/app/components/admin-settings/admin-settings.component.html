@@ -185,11 +185,11 @@
   </div>
   <div class="mb-5 row">
     <div class="col">
-      <h2 class="text-center">Tinkoff Investments</h2>
+      <h2 class="text-center" i18n>Tinkoff Investments</h2>
       <div class="justify-content-center mb-2 row">
         @if (hasTinkoffApiToken) {
           <div class="align-items-center d-inline-flex">
-            <span class="text-muted">API token is configured</span>
+            <span class="text-muted" i18n>API token is configured</span>
             <button
               class="mx-1 no-min-width px-2"
               mat-button
@@ -206,7 +206,7 @@
               <button mat-menu-item (click)="onRemoveTinkoffApiToken()">
                 <span class="align-items-center d-flex">
                   <ion-icon class="mr-2" name="trash-outline" />
-                  <span>Remove API token</span>
+                  <span i18n>Remove API token</span>
                 </span>
               </button>
             </mat-menu>
@@ -217,49 +217,51 @@
             mat-flat-button
             (click)="onSetTinkoffApiToken()"
           >
-            Set API token
+            <span i18n>Set API token</span>
           </button>
         }
       </div>
-      <div class="justify-content-center mb-2 row">
-        <button
-          class="mr-2 text-nowrap"
-          mat-stroked-button
-          [disabled]="isSyncingTinkoff || isDeletingTinkoff || !hasTinkoffApiToken"
-          (click)="onSyncTinkoff(true)"
-        >
-          Preview
-        </button>
-        <button
-          class="special text-nowrap"
-          mat-flat-button
-          [disabled]="isSyncingTinkoff || isDeletingTinkoff || !hasTinkoffApiToken"
-          (click)="onSyncTinkoff(false)"
-        >
-          Sync now
-        </button>
-        <button
-          class="ml-2 text-nowrap"
-          mat-stroked-button
-          [disabled]="isSyncingTinkoff || isDeletingTinkoff || !hasTinkoffApiToken"
-          (click)="onDeleteTinkoffActivities()"
-        >
-          Delete all imported
-        </button>
-      </div>
-      @if (isSyncingTinkoff || isDeletingTinkoff) {
-        <mat-progress-bar mode="indeterminate" />
-      }
-      @if (tinkoffSyncResult) {
-        <div class="justify-content-center row">
-          <small class="text-muted">
-            Accounts: {{ tinkoffSyncResult.accountsCount }} | Imported:
-            {{ tinkoffSyncResult.importedActivitiesCount }} | Duplicates:
-            {{ tinkoffSyncResult.duplicateActivitiesCount }} | Failed:
-            {{ tinkoffSyncResult.failedActivitiesCount }} | Skipped:
-            {{ tinkoffSyncResult.skippedActivitiesCount }}
-          </small>
+      @if (hasTinkoffApiToken) {
+        <div class="justify-content-center mb-3 row">
+          <button
+            class="mr-2 text-nowrap"
+            mat-stroked-button
+            [disabled]="isSyncingTinkoff || isDeletingTinkoff"
+            (click)="onSyncTinkoff(true)"
+          >
+            <span i18n>Preview</span>
+          </button>
+          <button
+            class="special text-nowrap"
+            mat-flat-button
+            [disabled]="isSyncingTinkoff || isDeletingTinkoff"
+            (click)="onSyncTinkoff(false)"
+          >
+            <span i18n>Sync now</span>
+          </button>
+          <button
+            class="ml-2 text-nowrap"
+            mat-stroked-button
+            [disabled]="isSyncingTinkoff || isDeletingTinkoff"
+            (click)="onDeleteTinkoffActivities()"
+          >
+            <span i18n>Delete all imported</span>
+          </button>
         </div>
+        @if (isSyncingTinkoff || isDeletingTinkoff) {
+          <mat-progress-bar mode="indeterminate" />
+        }
+        @if (tinkoffSyncResult) {
+          <div class="justify-content-center row">
+            <small class="text-muted">
+              <span i18n>Accounts:</span> {{ tinkoffSyncResult.accountsCount }} |
+              <span i18n>Imported:</span> {{ tinkoffSyncResult.importedActivitiesCount }} |
+              <span i18n>Duplicates:</span> {{ tinkoffSyncResult.duplicateActivitiesCount }} |
+              <span i18n>Failed:</span> {{ tinkoffSyncResult.failedActivitiesCount }} |
+              <span i18n>Skipped:</span> {{ tinkoffSyncResult.skippedActivitiesCount }}
+            </small>
+          </div>
+        }
       }
     </div>
   </div>

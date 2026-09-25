@@ -9371,6 +9371,111 @@
           <context context-type="linenumber">122</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="tinkoff-investments" datatype="html">
+        <source>Tinkoff Investments</source>
+        <target state="translated">Тинькофф Инвестиции</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-api-token-configured" datatype="html">
+        <source>API token is configured</source>
+        <target state="translated">API токен настроен</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-set-api-token" datatype="html">
+        <source>Set API token</source>
+        <target state="translated">Установить API токен</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-remove-api-token" datatype="html">
+        <source>Remove API token</source>
+        <target state="translated">Удалить API токен</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-preview" datatype="html">
+        <source>Preview</source>
+        <target state="translated">Предпросмотр</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-sync-now" datatype="html">
+        <source>Sync now</source>
+        <target state="translated">Синхронизировать сейчас</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-delete-all-imported" datatype="html">
+        <source>Delete all imported</source>
+        <target state="translated">Удалить все импортированное</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-accounts" datatype="html">
+        <source>Tinkoff Accounts</source>
+        <target state="translated">Аккаунты Тинькофф</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/tinkoff-accounts-dialog/tinkoff-accounts-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-failed-load-accounts" datatype="html">
+        <source>Failed to load Tinkoff accounts</source>
+        <target state="translated">Не удалось загрузить аккаунты Тинькофф</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-sync-failed" datatype="html">
+        <source>The Tinkoff sync failed</source>
+        <target state="translated">Синхронизация Тинькофф не удалась</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-delete-confirm" datatype="html">
+        <source>Do you really want to delete all activities imported from Tinkoff?</source>
+        <target state="translated">Вы действительно хотите удалить все активности, импортированные из Тинькофф?</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-delete-title" datatype="html">
+        <source>The Tinkoff data was deleted</source>
+        <target state="translated">Данные Тинькофф были удалены</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-delete-failed-title" datatype="html">
+        <source>Deleting the Tinkoff data failed</source>
+        <target state="translated">Удаление данных Тинькофф не удалось</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-token-delete-confirm" datatype="html">
+        <source>Do you really want to delete the Tinkoff API token?</source>
+        <target state="translated">Вы действительно хотите удалить API токен Тинькофф?</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="tinkoff-token-prompt" datatype="html">
+        <source>Please enter your Tinkoff API token.</source>
+        <target state="translated">Введите ваш API токен Тинькофф.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.ts</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>
