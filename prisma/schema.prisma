@@ -213,6 +213,18 @@ model Platform {
   @@index([name])
 }
 
+model ImportSource {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  apiKey    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([type])
+}
+
 model Property {
   key   String @id
   value String

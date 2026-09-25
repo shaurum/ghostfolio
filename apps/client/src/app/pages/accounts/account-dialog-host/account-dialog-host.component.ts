@@ -310,7 +310,7 @@ export class GfAccountDialogHostComponent implements OnDestroy, OnInit {
 
         const request$: Observable<unknown> = isUpdate
           ? this.dataService.putAccount(result as UpdateAccountDto)
-          : this.dataService.postAccount(result as CreateAccountDto);
+          : this.dataService.postAccount(result);
 
         request$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
           error: () => {

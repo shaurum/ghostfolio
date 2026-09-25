@@ -267,6 +267,11 @@
   </div>
   <div class="mb-5 row">
     <div class="col">
+      <gf-admin-import-source [locale]="user?.settings?.locale ?? DEFAULT_LOCALE" />
+    </div>
+  </div>
+  <div class="mb-5 row">
+    <div class="col">
       <h2 class="text-center">Asset Enrichment</h2>
       <div class="justify-content-center mb-2 row">
         <small class="text-muted text-center">

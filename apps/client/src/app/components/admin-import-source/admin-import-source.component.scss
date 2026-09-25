@@ -1,0 +1,13 @@
+@use '@angular/material' as mat;
+
+:host {
+  display: block;
+
+  .mat-mdc-table {
+    width: 100%;
+  }
+
+  .mat-mdc-paginator {
+    margin-top: 1rem;
+  }
+}

@@ -9476,6 +9476,111 @@
           <context context-type="sourcefile">apps/client/src/app/components/admin-settings/admin-settings.component.ts</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="import-sources" datatype="html">
+        <source>Import Transactions</source>
+        <target state="translated">Импорт сделок</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="add-import-source" datatype="html">
+        <source>Add Source</source>
+        <target state="translated">Добавить источник</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-name" datatype="html">
+        <source>Name</source>
+        <target state="translated">Название</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-type" datatype="html">
+        <source>Type</source>
+        <target state="translated">Тип</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-actions" datatype="html">
+        <source>Actions</source>
+        <target state="translated">Действия</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-sync" datatype="html">
+        <source>Sync</source>
+        <target state="translated">Синхронизировать</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-edit" datatype="html">
+        <source>Edit</source>
+        <target state="translated">Редактировать</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-delete" datatype="html">
+        <source>Delete</source>
+        <target state="translated">Удалить</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-delete-confirm" datatype="html">
+        <source>Do you really want to delete this import source?</source>
+        <target state="translated">Вы действительно хотите удалить этот источник импорта?</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.ts</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-create-title" datatype="html">
+        <source>Add Import Source</source>
+        <target state="translated">Добавить источник импорта</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/create-or-update-import-source-dialog/create-or-update-import-source-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-edit-title" datatype="html">
+        <source>Edit Import Source</source>
+        <target state="translated">Редактировать источник импорта</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/create-or-update-import-source-dialog/create-or-update-import-source-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-api-key" datatype="html">
+        <source>API Key</source>
+        <target state="translated">API ключ</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/create-or-update-import-source-dialog/create-or-update-import-source-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-save" datatype="html">
+        <source>Save</source>
+        <target state="translated">Сохранить</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/create-or-update-import-source-dialog/create-or-update-import-source-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-add" datatype="html">
+        <source>Add</source>
+        <target state="translated">Добавить</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/create-or-update-import-source-dialog/create-or-update-import-source-dialog.component.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-source-no-sources" datatype="html">
+        <source>No import sources found. Click "Add Source" to create one.</source>
+        <target state="translated">Источники импорта не найдены. Нажмите "Добавить источник" для создания.</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/components/admin-import-source/admin-import-source.component.html</context>
+        </context-group>
+      </trans-unit>
     </body>
   </file>
 </xliff>

@@ -1,0 +1,19 @@
+@use '@angular/material' as mat;
+
+:host {
+  display: block;
+
+  .mat-mdc-dialog-content {
+    mat-form-field {
+      width: 100%;
+    }
+  }
+
+  @media (max-width: 599px) {
+    .mat-mdc-dialog-container {
+      .mat-mdc-dialog-surface {
+        min-width: 100vw;
+      }
+    }
+  }
+}

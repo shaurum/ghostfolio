@@ -101,7 +101,7 @@ export class GfApiPageComponent implements OnInit {
       const fetchError = body?.message ? `${status}: ${body.message}` : status;
 
       return of<FetchFailure>({ fetchError });
-    }) as OperatorFunction<T, T | FetchFailure>;
+    });
   }
 
   private fetchAiServiceHealth() {

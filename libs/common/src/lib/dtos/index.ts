@@ -11,6 +11,7 @@ import { CreateOrderDto } from './create-order.dto';
 import { CreatePlatformDto } from './create-platform.dto';
 import { CreateTagDto } from './create-tag.dto';
 import { CreateWatchlistItemDto } from './create-watchlist-item.dto';
+import { CreateImportSourceDto } from './create-import-source.dto';
 import { DeleteOwnUserDto } from './delete-own-user.dto';
 import { HoldingDto } from './holding.dto';
 import { MergeAssetProfileDto } from './merge-asset-profile.dto';
@@ -28,6 +29,7 @@ import { UpdateOwnAccessTokenDto } from './update-own-access-token.dto';
 import { UpdatePlatformDto } from './update-platform.dto';
 import { UpdatePropertyDto } from './update-property.dto';
 import { UpdateTagDto } from './update-tag.dto';
+import { UpdateImportSourceDto } from './update-import-source.dto';
 import { UpdateUserSettingDto } from './update-user-setting.dto';
 
 export {
@@ -44,6 +46,7 @@ export {
   CreatePlatformDto,
   CreateTagDto,
   CreateWatchlistItemDto,
+  CreateImportSourceDto,
   DeleteOwnUserDto,
   HoldingDto,
   MergeAssetProfileDto,
@@ -61,5 +64,6 @@ export {
   UpdatePlatformDto,
   UpdatePropertyDto,
   UpdateTagDto,
+  UpdateImportSourceDto,
   UpdateUserSettingDto
 };

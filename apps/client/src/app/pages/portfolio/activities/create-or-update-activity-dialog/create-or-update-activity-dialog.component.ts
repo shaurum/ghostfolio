@@ -549,7 +549,7 @@ export class GfCreateOrUpdateActivityDialogComponent {
           object: activity as UpdateOrderDto
         });
 
-        this.dialogRef.close(activity as UpdateOrderDto);
+        this.dialogRef.close(activity);
       }
     } catch (error) {
       console.error(error);

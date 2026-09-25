@@ -15,8 +15,10 @@ import {
   GATHER_ASSET_PROFILE_PROCESS_JOB_OPTIONS
 } from '@ghostfolio/common/config';
 import {
+  CreateImportSourceDto,
   MergeAssetProfileDto,
   UpdateAssetProfileDto,
+  UpdateImportSourceDto,
   UpdatePropertyDto
 } from '@ghostfolio/common/dtos';
 import {
@@ -28,6 +30,7 @@ import {
   AdminUserResponse,
   AdminUsersResponse,
   EnhancedAssetProfile,
+  ImportSource,
   ScraperConfiguration
 } from '@ghostfolio/common/interfaces';
 import { permissions } from '@ghostfolio/common/permissions';
@@ -372,5 +375,38 @@ export class AdminController {
   @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
   public async getUser(@Param('id') id: string): Promise<AdminUserResponse> {
     return this.adminService.getUser(id);
+  }
+
+  @Get('import-sources')
+  @HasPermission(permissions.accessAdminControl)
+  @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
+  public async getImportSources(): Promise<ImportSource[]> {
+    return this.adminService.getImportSources();
+  }
+
+  @Post('import-sources')
+  @HasPermission(permissions.accessAdminControl)
+  @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
+  public async createImportSource(
+    @Body() data: CreateImportSourceDto
+  ): Promise<ImportSource> {
+    return this.adminService.createImportSource(data);
+  }
+
+  @Patch('import-sources/:id')
+  @HasPermission(permissions.accessAdminControl)
+  @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
+  public async updateImportSource(
+    @Param('id') id: string,
+    @Body() data: UpdateImportSourceDto
+  ): Promise<ImportSource> {
+    return this.adminService.updateImportSource(id, data);
+  }
+
+  @Delete('import-sources/:id')
+  @HasPermission(permissions.accessAdminControl)
+  @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
+  public async deleteImportSource(@Param('id') id: string): Promise<void> {
+    return this.adminService.deleteImportSource(id);
   }
 }

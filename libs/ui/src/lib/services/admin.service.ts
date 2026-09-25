@@ -5,9 +5,11 @@ import {
 } from '@ghostfolio/common/config';
 import {
   CreateAssetProfileSplitDto,
+  CreateImportSourceDto,
   CreatePlatformDto,
   MergeAssetProfileDto,
   UpdateAssetProfileDto,
+  UpdateImportSourceDto,
   UpdatePlatformDto
 } from '@ghostfolio/common/dtos';
 import {
@@ -22,7 +24,8 @@ import {
   AssetProfileIdentifier,
   DataProviderGhostfolioStatusResponse,
   DataProviderHistoricalResponse,
-  EnhancedAssetProfile
+  EnhancedAssetProfile,
+  ImportSource
 } from '@ghostfolio/common/interfaces';
 import { DateRange } from '@ghostfolio/common/types';
 import { GF_ENVIRONMENT } from '@ghostfolio/ui/environment';
@@ -319,5 +322,21 @@ export class AdminService {
         scraperConfiguration
       }
     );
+  }
+
+  public fetchImportSources() {
+    return this.http.get<ImportSource[]>('/api/v1/admin/import-sources');
+  }
+
+  public createImportSource(data: CreateImportSourceDto) {
+    return this.http.post<ImportSource>('/api/v1/admin/import-sources', data);
+  }
+
+  public updateImportSource(id: string, data: UpdateImportSourceDto) {
+    return this.http.patch<ImportSource>(`/api/v1/admin/import-sources/${id}`, data);
+  }
+
+  public deleteImportSource(id: string) {
+    return this.http.delete<void>(`/api/v1/admin/import-sources/${id}`);
   }
 }

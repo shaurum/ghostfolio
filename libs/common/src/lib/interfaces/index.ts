@@ -21,6 +21,7 @@ import type { FireWealth } from './fire-wealth.interface';
 import type { HistoricalDataItem } from './historical-data-item.interface';
 import type { HoldingWithParents } from './holding-with-parents.interface';
 import type { Holding } from './holding.interface';
+import type { ImportSource } from './import-source.interface';
 import type { InfoItem } from './info-item.interface';
 import type { InvestmentItem } from './investment-item.interface';
 import type {
@@ -146,6 +147,7 @@ export {
   DataProviderGhostfolioAssetProfileResponse,
   DataProviderGhostfolioStatusResponse,
   DataProviderHealthResponse,
+  ImportSource,
   DataProviderHistoricalResponse,
   DataProviderInfo,
   DataProviderResponse,

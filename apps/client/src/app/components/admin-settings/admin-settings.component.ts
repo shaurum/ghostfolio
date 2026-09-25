@@ -1,3 +1,4 @@
+import { GfAdminImportSourceComponent } from '@ghostfolio/client/components/admin-import-source';
 import { GfAdminPlatformComponent } from '@ghostfolio/client/components/admin-platform/admin-platform.component';
 import { GfAdminTagComponent } from '@ghostfolio/client/components/admin-tag/admin-tag.component';
 import { GfDataProviderStatusComponent } from '@ghostfolio/client/components/data-provider-status/data-provider-status.component';
@@ -52,6 +53,7 @@ import { catchError, filter, of } from 'rxjs';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
+    GfAdminImportSourceComponent,
     GfAdminPlatformComponent,
     GfAdminTagComponent,
     GfDataProviderStatusComponent,

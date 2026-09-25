@@ -26,7 +26,8 @@ import {
   AdminUserResponse,
   AdminUsersResponse,
   AssetProfileIdentifier,
-  EnhancedAssetProfile
+  EnhancedAssetProfile,
+  ImportSource
 } from '@ghostfolio/common/interfaces';
 import { PropertyKey } from '@ghostfolio/common/types';
 
@@ -775,5 +776,35 @@ export class AdminService {
         };
       }
     );
+  }
+
+  public async getImportSources(): Promise<ImportSource[]> {
+    return this.prismaService.importSource.findMany({
+      orderBy: { name: 'asc' }
+    });
+  }
+
+  public async createImportSource(
+    data: { name: string; type: string; apiKey: string }
+  ): Promise<ImportSource> {
+    return this.prismaService.importSource.create({
+      data
+    });
+  }
+
+  public async updateImportSource(
+    id: string,
+    data: { name?: string; type?: string; apiKey?: string }
+  ): Promise<ImportSource> {
+    return this.prismaService.importSource.update({
+      where: { id },
+      data
+    });
+  }
+
+  public async deleteImportSource(id: string): Promise<void> {
+    await this.prismaService.importSource.delete({
+      where: { id }
+    });
   }
 }

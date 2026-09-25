@@ -1,0 +1,118 @@
+<div class="container">
+  <div class="mb-4 d-flex justify-content-between align-items-center">
+    <h2 class="mb-0" i18n>Импорт сделок</h2>
+    <button
+      class="special"
+      mat-flat-button
+      (click)="openCreateImportSourceDialog()"
+      routerLink=""
+      queryParamsHandling="merge"
+      [queryParams]="{ createImportSourceDialog: true }"
+    >
+      <ion-icon class="mr-1" name="create-outline" />
+      <span i18n>Добавить источник</span>
+    </button>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table
+      class="gf-table w-100"
+      mat-table
+      matSort
+      matSortActive="name"
+      matSortDirection="asc"
+      [dataSource]="dataSource"
+    >
+      <ng-container matColumnDef="name">
+        <th
+          *matHeaderCellDef
+          class="px-1"
+          mat-header-cell
+          mat-sort-header="name"
+        >
+          <ng-container i18n>Название</ng-container>
+        </th>
+        <td *matCellDef="let element" class="px-1 text-nowrap" mat-cell>
+          {{ element.name }}
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="type">
+        <th
+          *matHeaderCellDef
+          class="px-1"
+          mat-header-cell
+          mat-sort-header="type"
+        >
+          <ng-container i18n>Тип</ng-container>
+        </th>
+        <td *matCellDef="let element" class="px-1 text-nowrap" mat-cell>
+          <span class="badge badge-secondary">
+            @if (element.type === 'T_INVEST') {
+              Т Инвестиции
+            } @else {
+              {{ element.type }}
+            }
+          </span>
+        </td>
+      </ng-container>
+
+      <ng-container matColumnDef="actions">
+        <th *matHeaderCellDef class="px-1" mat-header-cell>
+          <ng-container i18n>Действия</ng-container>
+        </th>
+        <td *matCellDef="let element" class="px-1 text-right" mat-cell>
+          <button
+            class="mx-1 no-min-width px-2"
+            mat-button
+            [matMenuTriggerFor]="importSourceMenu"
+            (click)="$event.stopPropagation()"
+          >
+            <ion-icon name="ellipsis-horizontal" />
+          </button>
+          <mat-menu
+            #importSourceMenu="matMenu"
+            class="no-max-width"
+            xPosition="before"
+          >
+            <button mat-menu-item (click)="onSyncImportSource(element)">
+              <span class="align-items-center d-flex">
+                <ion-icon class="mr-2" name="sync-outline" />
+                <span i18n>Синхронизировать</span>
+              </span>
+            </button>
+            <button mat-menu-item (click)="onUpdateImportSource(element)">
+              <span class="align-items-center d-flex">
+                <ion-icon class="mr-2" name="create-outline" />
+                <span i18n>Редактировать</span>
+              </span>
+            </button>
+            <hr class="m-0" />
+            <button mat-menu-item (click)="onDeleteImportSource(element.id)">
+              <span class="align-items-center d-flex">
+                <ion-icon class="mr-2" name="trash-outline" />
+                <span i18n>Удалить</span>
+              </span>
+            </button>
+          </mat-menu>
+        </td>
+      </ng-container>
+
+      <tr *matHeaderRowDef="displayedColumns" mat-header-row></tr>
+      <tr *matRowDef="let row; columns: displayedColumns" mat-row></tr>
+    </table>
+  </div>
+
+  @if (importSources?.length === 0) {
+    <div class="text-center text-muted py-4">
+      <small i18n>Источников импорта не найдено. Нажмите "Добавить источник" для создания.</small>
+    </div>
+  }
+
+  <mat-paginator
+    [length]="importSources?.length ?? 0"
+    [pageSize]="pageSize"
+    [pageSizeOptions]="[5, 10, 25, 50]"
+    [showFirstLastButtons]="true"
+  />
+</div>
