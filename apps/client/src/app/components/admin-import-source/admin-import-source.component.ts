@@ -138,6 +138,12 @@ export class GfAdminImportSourceComponent implements OnInit {
           this.dataService.updateInfo();
 
           this.fetchImportSources();
+        },
+        error: (error) => {
+          this.notificationService.alert({
+            message: error?.error?.message ?? error?.message,
+            title: 'Failed to delete import source'
+          });
         }
       });
   }
@@ -183,6 +189,12 @@ export class GfAdminImportSourceComponent implements OnInit {
                 this.dataService.updateInfo();
 
                 this.fetchImportSources();
+              },
+              error: (error) => {
+                this.notificationService.alert({
+                  message: error?.error?.message ?? error?.message,
+                  title: 'Failed to create import source'
+                });
               }
             });
         }
@@ -221,6 +233,12 @@ export class GfAdminImportSourceComponent implements OnInit {
                 this.dataService.updateInfo();
 
                 this.fetchImportSources();
+              },
+              error: (error) => {
+                this.notificationService.alert({
+                  message: error?.error?.message ?? error?.message,
+                  title: 'Failed to update import source'
+                });
               }
             });
         }
