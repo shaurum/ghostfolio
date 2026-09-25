@@ -12,7 +12,11 @@ import { GfActivitiesTableComponent } from '@ghostfolio/ui/activities-table';
 import { GfDialogFooterComponent } from '@ghostfolio/ui/dialog-footer';
 import { GfDialogHeaderComponent } from '@ghostfolio/ui/dialog-header';
 import { DataService } from '@ghostfolio/ui/services';
+import { GfValueComponent } from '@ghostfolio/ui/value';
 
+import {
+  SelectionModel
+} from '@angular/cdk/collections';
 import {
   StepperOrientation,
   StepperSelectionEvent
@@ -33,6 +37,7 @@ import {
   Validators
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
 import {
   MAT_DIALOG_DATA,
   MatDialogModule,
@@ -46,7 +51,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { SortDirection } from '@angular/material/sort';
 import { MatStepper, MatStepperModule } from '@angular/material/stepper';
-import { MatTableDataSource } from '@angular/material/table';
+import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { IonIcon } from '@ionic/angular/standalone';
 import { AssetClass } from '@prisma/client';
 import { addIcons } from 'ionicons';
@@ -60,20 +65,23 @@ import { ImportActivitiesDialogParams } from './interfaces/interfaces';
 @Component({
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'd-flex flex-column h-100' },
-  imports: [
+imports: [
     CommonModule,
     GfActivitiesTableComponent,
     GfDialogFooterComponent,
     GfDialogHeaderComponent,
     GfFileDropDirective,
+    GfValueComponent,
     IonIcon,
     MatButtonModule,
+    MatCheckboxModule,
     MatDialogModule,
     MatExpansionModule,
     MatFormFieldModule,
     MatProgressSpinnerModule,
     MatSelectModule,
     MatStepperModule,
+    MatTableModule,
     ReactiveFormsModule
   ],
   selector: 'gf-import-activities-dialog',
@@ -86,8 +94,9 @@ export class GfImportActivitiesDialogComponent {
       validators: [Validators.required]
     })
   });
-  protected readonly data =
+  protected data =
     inject<ImportActivitiesDialogParams>(MAT_DIALOG_DATA);
+  protected accountsDataSource: MatTableDataSource<CreateAccountWithBalancesDto> | undefined;
   protected dataSource: MatTableDataSource<Activity>;
   protected details: any[] = [];
   protected dialogTitle = $localize`Import Activities`;
@@ -98,15 +107,16 @@ export class GfImportActivitiesDialogComponent {
   protected mode: 'DIVIDEND';
   protected pageIndex = 0;
   protected readonly pageSize = 8;
+  protected selectedAccounts = new SelectionModel<CreateAccountWithBalancesDto>(true, []);
   protected selectedActivities: Activity[] = [];
   protected readonly sortColumn = 'date';
   protected readonly sortDirection: SortDirection = 'desc';
   protected readonly stepperOrientation: StepperOrientation =
     this.data.deviceType === 'mobile' ? 'vertical' : 'horizontal';
   protected totalItems: number;
+  protected readonly ImportStep = ImportStep;
 
   private accounts: CreateAccountWithBalancesDto[] = [];
-  private activities: Activity[] = [];
   private assetProfiles: CreateAssetProfileWithMarketDataDto[] = [];
   private platforms: CreatePlatformDto[] = [];
   private tags: CreateTagDto[] = [];
@@ -222,6 +232,8 @@ export class GfImportActivitiesDialogComponent {
   protected onImportStepChange(event: StepperSelectionEvent) {
     if (event.selectedIndex === ImportStep.UPLOAD_FILE) {
       this.importStep = ImportStep.UPLOAD_FILE;
+    } else if (event.selectedIndex === ImportStep.SELECT_ACCOUNTS) {
+      this.importStep = ImportStep.SELECT_ACCOUNTS;
     } else if (event.selectedIndex === ImportStep.SELECT_ACTIVITIES) {
       this.importStep = ImportStep.SELECT_ACTIVITIES;
     }
@@ -245,12 +257,12 @@ export class GfImportActivitiesDialogComponent {
       })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(({ activities }) => {
-        this.activities = activities;
         this.dataSource = new MatTableDataSource(activities.reverse());
         this.pageIndex = 0;
         this.totalItems = activities.length;
 
-        aStepper.next();
+        this.importStep = ImportStep.SELECT_ACTIVITIES;
+        aStepper.selectedIndex = ImportStep.SELECT_ACTIVITIES;
 
         this.changeDetectorRef.markForCheck();
       });
@@ -261,13 +273,31 @@ export class GfImportActivitiesDialogComponent {
   }
 
   protected onReset(aStepper: MatStepper) {
+    this.accounts = [];
+    this.accountsDataSource = undefined;
     this.details = [];
     this.errorMessages = [];
-    this.importStep = ImportStep.SELECT_ACTIVITIES;
+    this.importStep = ImportStep.UPLOAD_FILE;
     this.pageIndex = 0;
     this.assetProfileForm.controls.assetProfileIdentifier.enable();
+    this.selectedAccounts.clear();
 
     aStepper.reset();
+  }
+
+  protected onAccountsSelected(aStepper: MatStepper) {
+    const selectedAccounts = this.selectedAccounts.selected;
+
+    if (selectedAccounts.length === 0) {
+      return;
+    }
+
+    this.accounts = selectedAccounts;
+    this.importStep = ImportStep.SELECT_ACTIVITIES;
+
+    aStepper.next();
+
+    this.changeDetectorRef.markForCheck();
   }
 
   protected onSelectFile(stepper: MatStepper) {
@@ -309,10 +339,10 @@ export class GfImportActivitiesDialogComponent {
         if (fileExtension === 'json') {
           const content = JSON.parse(fileContent);
 
-          this.accounts = content.accounts;
-          this.assetProfiles = content.assetProfiles;
-          this.platforms = content.platforms;
-          this.tags = content.tags;
+          this.accounts = content.accounts ?? [];
+          this.assetProfiles = content.assetProfiles ?? [];
+          this.platforms = content.platforms ?? [];
+          this.tags = content.tags ?? [];
 
           if (!isArray(content.activities)) {
             if (isArray(content.orders)) {
@@ -338,24 +368,33 @@ export class GfImportActivitiesDialogComponent {
             return activity;
           });
 
-          try {
-            const { activities } =
-              await this.importActivitiesService.importJson({
-                accounts: content.accounts,
-                activities: content.activities,
-                assetProfiles: content.assetProfiles,
-                isDryRun: true,
-                platforms: content.platforms,
-                tags: content.tags
-              });
+          if (this.accounts.length > 0) {
+            this.accountsDataSource = new MatTableDataSource(this.accounts);
+            this.selectedAccounts.clear();
+            this.accounts.forEach((account) => this.selectedAccounts.select(account));
+            this.importStep = ImportStep.SELECT_ACCOUNTS;
+            stepper.next();
+          } else {
+            try {
+              const { activities } =
+                await this.importActivitiesService.importJson({
+                  accounts: [],
+                  activities: content.activities,
+                  assetProfiles: content.assetProfiles,
+                  isDryRun: true,
+                  platforms: content.platforms,
+                  tags: content.tags
+                });
 
-            this.activities = activities;
-            this.dataSource = new MatTableDataSource(activities.reverse());
-            this.pageIndex = 0;
-            this.totalItems = activities.length;
-          } catch (error) {
-            console.error(error);
-            this.handleImportError({ error, activities: content.activities });
+              this.dataSource = new MatTableDataSource(activities.reverse());
+              this.pageIndex = 0;
+              this.totalItems = activities.length;
+              this.importStep = ImportStep.SELECT_ACTIVITIES;
+              stepper.next();
+            } catch (error) {
+              console.error(error);
+              this.handleImportError({ error, activities: content.activities });
+            }
           }
 
           return;
@@ -370,11 +409,12 @@ export class GfImportActivitiesDialogComponent {
                 userAccounts: this.data.user.accounts
               });
 
-            this.activities = activities;
             this.assetProfiles = assetProfiles;
             this.dataSource = new MatTableDataSource(activities.reverse());
             this.pageIndex = 0;
             this.totalItems = activities.length;
+            this.importStep = ImportStep.SELECT_ACTIVITIES;
+            stepper.next();
           } catch (error) {
             console.error(error);
             this.handleImportError({
@@ -396,12 +436,7 @@ export class GfImportActivitiesDialogComponent {
           error: { error: { message: ['Unexpected format'] } }
         });
       } finally {
-        this.importStep = ImportStep.SELECT_ACTIVITIES;
         this.snackBar.dismiss();
-        this.updateSelection(this.activities);
-
-        stepper.next();
-
         this.changeDetectorRef.markForCheck();
       }
     };

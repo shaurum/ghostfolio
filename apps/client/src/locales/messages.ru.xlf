@@ -4490,6 +4490,27 @@
           <context context-type="linenumber">118</context>
         </context-group>
       </trans-unit>
+      <trans-unit id="import-select-accounts" datatype="html">
+        <source>Select Accounts</source>
+        <target state="translated">Выберите аккаунты</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/pages/portfolio/activities/import-activities-dialog/import-activities-dialog.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-balances" datatype="html">
+        <source>Balances</source>
+        <target state="translated">Балансы</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/pages/portfolio/activities/import-activities-dialog/import-activities-dialog.html</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="import-no-accounts" datatype="html">
+        <source>No accounts found in the import file</source>
+        <target state="translated">В импортируемом файле не найдено аккаунтов</target>
+        <context-group purpose="location">
+          <context context-type="sourcefile">apps/client/src/app/pages/portfolio/activities/import-activities-dialog/import-activities-dialog.html</context>
+        </context-group>
+      </trans-unit>
       <trans-unit id="6718883297275862532" datatype="html">
         <source>Shares After</source>
         <target state="translated">Акций после</target>

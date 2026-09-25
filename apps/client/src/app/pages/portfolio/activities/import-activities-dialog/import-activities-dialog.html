@@ -13,7 +13,7 @@
     [selectedIndex]="importStep"
     (selectionChange)="onImportStepChange($event)"
   >
-    <mat-step [completed]="importStep === 0">
+    <mat-step [completed]="importStep > 0">
       <ng-template matStepLabel>
         @if (mode === 'DIVIDEND') {
           <ng-container i18n>Select Holding</ng-container>
@@ -110,7 +110,176 @@
       </div>
     </mat-step>
 
-    <mat-step [completed]="importStep === 1">
+    <mat-step [completed]="importStep > 1">
+      <ng-template matStepLabel>
+        <ng-container i18n>Select Accounts</ng-container>
+      </ng-template>
+      <div>
+        @if (errorMessages?.length === 0) {
+          @if (accountsDataSource) {
+            <table
+              class="gf-table w-100"
+              mat-table
+              [dataSource]="accountsDataSource"
+            >
+              <ng-container matColumnDef="select" sticky>
+                <th *matHeaderCellDef class="px-1" mat-header-cell>
+                  <mat-checkbox
+                    color="primary"
+                    [checked]="
+                      accountsDataSource.data.length > 0 &&
+                      selectedAccounts.selected.length === accountsDataSource.data.length
+                    "
+                    [indeterminate]="
+                      selectedAccounts.selected.length > 0 &&
+                      selectedAccounts.selected.length < accountsDataSource.data.length
+                    "
+                    (change)="$event ? selectedAccounts.selected.length === accountsDataSource.data.length ? selectedAccounts.clear() : accountsDataSource.data.forEach(a => selectedAccounts.select(a)) : null"
+                  />
+                </th>
+                <td *matCellDef="let account" class="px-1" mat-cell>
+                  <mat-checkbox
+                    color="primary"
+                    [checked]="selectedAccounts.isSelected(account)"
+                    (change)="$event ? selectedAccounts.toggle(account) : null"
+                    (click)="$event.stopPropagation()"
+                  />
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="name">
+                <th *matHeaderCellDef class="px-1" mat-header-cell>
+                  <ng-container i18n>Name</ng-container>
+                </th>
+                <td *matCellDef="let account" class="px-1" mat-cell>
+                  <div class="d-flex">
+                    <gf-entity-logo
+                      class="mr-1"
+                      [hasPlaceholder]="true"
+                      [tooltip]="account.platform?.name"
+                      [url]="account.platform?.url"
+                    />
+                    <span class="d-none d-lg-block text-nowrap">{{
+                      account.name
+                    }}</span>
+                  </div>
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="currency">
+                <th *matHeaderCellDef class="px-1" mat-header-cell>
+                  <ng-container i18n>Currency</ng-container>
+                </th>
+                <td *matCellDef="let account" class="px-1" mat-cell>
+                  {{ account.currency }}
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="balances">
+                <th *matHeaderCellDef class="px-1" mat-header-cell>
+                  <ng-container i18n>Balances</ng-container>
+                </th>
+                <td *matCellDef="let account" class="px-1" mat-cell>
+                  @if (account.balances?.length) {
+                    <div class="d-flex flex-wrap gap-1">
+                      @for (balance of account.balances; track balance.date) {
+                        <gf-value
+                          [isCurrency]="true"
+                          [locale]="data?.user?.settings?.locale"
+                          [value]="balance.value"
+                        />
+                        <small class="text-muted align-self-center">{{
+                          balance.date | date:'yyyy-MM-dd'
+                        }}</small>
+                      }
+                    </div>
+                  }
+                </td>
+              </ng-container>
+
+              <ng-container matColumnDef="platform">
+                <th *matHeaderCellDef class="px-1" mat-header-cell>
+                  <ng-container i18n>Platform</ng-container>
+                </th>
+                <td *matCellDef="let account" class="px-1" mat-cell>
+                  <div class="d-flex">
+                    <gf-entity-logo
+                      class="mr-1"
+                      [hasPlaceholder]="true"
+                      [tooltip]="account.platform?.name"
+                      [url]="account.platform?.url"
+                    />
+                    <span class="d-none d-lg-block text-nowrap">{{
+                      account.platform?.name
+                    }}</span>
+                  </div>
+                </td>
+              </ng-container>
+
+              <tr *matHeaderRowDef="['select', 'name', 'currency', 'balances', 'platform']" mat-header-row></tr>
+              <tr *matRowDef="let row; columns: ['select', 'name', 'currency', 'balances', 'platform']" mat-row></tr>
+            </table>
+          } @else {
+            <div class="text-center p-4 text-muted">
+              <span i18n>No accounts found in the import file</span>
+            </div>
+          }
+          <div class="d-flex justify-content-end mt-3">
+            <button mat-button (click)="onReset(stepper)">
+              <ng-container i18n>Back</ng-container>
+            </button>
+            <button
+              class="ml-1"
+              color="primary"
+              mat-flat-button
+              [disabled]="selectedAccounts.selected.length === 0"
+              (click)="onAccountsSelected(stepper)"
+            >
+              <ng-container i18n>Continue</ng-container>
+            </button>
+          </div>
+        } @else {
+          <div class="pt-3">
+            <mat-accordion displayMode="flat">
+              @for (message of errorMessages; track message; let i = $index) {
+                <mat-expansion-panel [disabled]="!details[i]">
+                  <mat-expansion-panel-header class="pl-1">
+                    <mat-panel-title class="w-100">
+                      <div class="d-flex w-100">
+                        <div class="align-items-center d-flex mr-2">
+                          <ion-icon name="warning-outline" />
+                        </div>
+                        <div class="text-truncate" title="{{ message }}">
+                          {{ message }}
+                        </div>
+                      </div>
+                    </mat-panel-title>
+                  </mat-expansion-panel-header>
+                  @if (details[i]) {
+                    <pre class="m-0"><code>{{ details[i] | json }}</code></pre>
+                  }
+                </mat-expansion-panel>
+              }
+            </mat-accordion>
+          </div>
+          <div class="d-flex justify-content-end mt-3">
+            <button mat-button (click)="onReset(stepper)">
+              <ng-container i18n>Back</ng-container>
+            </button>
+            <button
+              class="ml-1"
+              color="primary"
+              mat-flat-button
+              [disabled]="true"
+            >
+              <ng-container i18n>Continue</ng-container>
+            </button>
+          </div>
+        }
+      </div>
+    </mat-step>
+
+    <mat-step [completed]="importStep === ImportStep.SELECT_ACTIVITIES">
       <ng-template matStepLabel>
         @if (mode === 'DIVIDEND') {
           <ng-container i18n>Select Dividends</ng-container>
@@ -120,7 +289,7 @@
       </ng-template>
       <div>
         @if (errorMessages?.length === 0) {
-          @if (importStep === 1) {
+          @if (importStep === ImportStep.SELECT_ACTIVITIES) {
             <gf-activities-table
               [baseCurrency]="data?.user?.settings?.baseCurrency"
               [dataSource]="dataSource"
