@@ -152,17 +152,25 @@ export class GfAdminImportSourceComponent implements OnInit {
     this.adminService
       .fetchImportSources()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe((importSources) => {
-        this.importSources = importSources;
+      .subscribe({
+        next: (importSources) => {
+          this.importSources = importSources;
 
-        this.dataSource = new MatTableDataSource(importSources);
-        this.dataSource.paginator = this.paginator();
-        this.dataSource.sort = this.sort();
-        this.dataSource.sortingDataAccessor = get;
+          this.dataSource = new MatTableDataSource(importSources);
+          this.dataSource.paginator = this.paginator();
+          this.dataSource.sort = this.sort();
+          this.dataSource.sortingDataAccessor = get;
 
-        this.dataService.updateInfo();
+          this.dataService.updateInfo();
 
-        this.changeDetectorRef.markForCheck();
+          this.changeDetectorRef.markForCheck();
+        },
+        error: (error) => {
+          this.notificationService.alert({
+            message: error?.error?.message ?? error?.message,
+            title: 'Failed to load import sources'
+          });
+        }
       });
   }
 

@@ -202,50 +202,60 @@ export class GfAdminSettingsComponent implements OnInit {
     this.adminService
       .fetchAdminData()
       .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(({ dataProviders, settings }) => {
-        const filteredProviders = dataProviders.filter(({ dataSource }) => {
-          return dataSource !== 'MANUAL';
-        });
+      .subscribe({
+        next: ({ dataProviders, settings }) => {
+          const filteredProviders = dataProviders.filter(({ dataSource }) => {
+            return dataSource !== 'MANUAL';
+          });
 
-        this.dataSource = new MatTableDataSource(filteredProviders);
-        this.dataSource.sort = this.sort;
-        this.dataSource.sortingDataAccessor = get;
+          this.dataSource = new MatTableDataSource(filteredProviders);
+          this.dataSource.sort = this.sort;
+          this.dataSource.sortingDataAccessor = get;
 
-        const ghostfolioApiKey = settings[
-          PROPERTY_API_KEY_GHOSTFOLIO
-        ] as string;
+          const ghostfolioApiKey = settings[
+            PROPERTY_API_KEY_GHOSTFOLIO
+          ] as string;
 
-        this.hasGhostfolioApiKey = !!ghostfolioApiKey;
+          this.hasGhostfolioApiKey = !!ghostfolioApiKey;
 
-        if (ghostfolioApiKey) {
-          this.adminService
-            .fetchGhostfolioDataProviderStatus(ghostfolioApiKey)
-            .pipe(
-              catchError(() => {
-                this.isGhostfolioApiKeyValid = false;
+          if (ghostfolioApiKey) {
+            this.adminService
+              .fetchGhostfolioDataProviderStatus(ghostfolioApiKey)
+              .pipe(
+                catchError(() => {
+                  this.isGhostfolioApiKeyValid = false;
+
+                  this.changeDetectorRef.markForCheck();
+
+                  return of(null);
+                }),
+                filter((status) => {
+                  return status !== null;
+                }),
+                takeUntilDestroyed(this.destroyRef)
+              )
+              .subscribe((status) => {
+                this.ghostfolioApiStatus = status;
+                this.isGhostfolioApiKeyValid = true;
 
                 this.changeDetectorRef.markForCheck();
+              });
+          } else {
+            this.isGhostfolioApiKeyValid = false;
+          }
 
-                return of(null);
-              }),
-              filter((status) => {
-                return status !== null;
-              }),
-              takeUntilDestroyed(this.destroyRef)
-            )
-            .subscribe((status) => {
-              this.ghostfolioApiStatus = status;
-              this.isGhostfolioApiKeyValid = true;
+          this.isLoading = false;
 
-              this.changeDetectorRef.markForCheck();
-            });
-        } else {
-          this.isGhostfolioApiKeyValid = false;
+          this.changeDetectorRef.markForCheck();
+        },
+        error: (error) => {
+          this.notificationService.alert({
+            message: error?.error?.message ?? error?.message,
+            title: 'Failed to load admin settings'
+          });
+          this.isLoading = false;
+          this.changeDetectorRef.markForCheck();
         }
-
-        this.isLoading = false;
-
-        this.changeDetectorRef.markForCheck();
       });
   }
 }
