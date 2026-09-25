@@ -5,14 +5,11 @@ import { GfDataProviderStatusComponent } from '@ghostfolio/client/components/dat
 import { UserService } from '@ghostfolio/client/services/user/user.service';
 import {
   DEFAULT_LOCALE,
-  PROPERTY_API_KEY_GHOSTFOLIO,
-  PROPERTY_TINKOFF_API_TOKEN
+  PROPERTY_API_KEY_GHOSTFOLIO
 } from '@ghostfolio/common/config';
 import { ConfirmationDialogType } from '@ghostfolio/common/enums';
 import { getDateFormatString } from '@ghostfolio/common/helper';
 import {
-  AdminTinkoffSyncResponse,
-  AdminTinkoffAccountResponse,
   DataProviderGhostfolioStatusResponse,
   DataProviderInfo,
   User
@@ -22,7 +19,6 @@ import { NotificationService } from '@ghostfolio/ui/notifications';
 import { GfPremiumIndicatorComponent } from '@ghostfolio/ui/premium-indicator';
 import { AdminService, DataService } from '@ghostfolio/ui/services';
 import { GfValueComponent } from '@ghostfolio/ui/value';
-import { GfTinkoffAccountsDialogComponent } from './tinkoff-accounts-dialog/tinkoff-accounts-dialog.component';
 
 import { CommonModule } from '@angular/common';
 import {
@@ -35,7 +31,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSort, MatSortModule } from '@angular/material/sort';
@@ -59,7 +55,6 @@ import { catchError, filter, of } from 'rxjs';
     GfDataProviderStatusComponent,
     GfEntityLogoComponent,
     GfPremiumIndicatorComponent,
-    GfTinkoffAccountsDialogComponent,
     GfValueComponent,
     IonIcon,
     MatButtonModule,
@@ -92,14 +87,10 @@ export class GfAdminSettingsComponent implements OnInit {
   public ghostfolioApiStatus: DataProviderGhostfolioStatusResponse;
   public readonly ghostfolioApiStatusTooltip = $localize`Additional requests are granted while you are setting up your instance`;
   public hasGhostfolioApiKey: boolean;
-  public hasTinkoffApiToken: boolean;
   public imageTag: string;
-  public isDeletingTinkoff = false;
   public isEnriching = false;
   public isGhostfolioApiKeyValid: boolean;
   public isLoading = false;
-  public isSyncingTinkoff = false;
-  public tinkoffSyncResult: AdminTinkoffSyncResponse | undefined;
   public user: User;
 
   protected readonly DEFAULT_LOCALE = DEFAULT_LOCALE;
@@ -109,7 +100,6 @@ export class GfAdminSettingsComponent implements OnInit {
     private changeDetectorRef: ChangeDetectorRef,
     private dataService: DataService,
     private destroyRef: DestroyRef,
-    private dialog: MatDialog,
     private notificationService: NotificationService,
     private userService: UserService
   ) {
@@ -138,44 +128,8 @@ export class GfAdminSettingsComponent implements OnInit {
     return provider.dataSource === 'GHOSTFOLIO';
   }
 
-  public onDeleteTinkoffActivities() {
-    this.notificationService.confirm({
-      confirmFn: () => {
-        this.isDeletingTinkoff = true;
-        this.tinkoffSyncResult = undefined;
-
-        this.adminService
-          .deleteTinkoffActivities()
-          .pipe(takeUntilDestroyed(this.destroyRef))
-          .subscribe({
-            next: ({ deletedAccountsCount, deletedActivitiesCount }) => {
-              this.isDeletingTinkoff = false;
-              this.changeDetectorRef.markForCheck();
-
-              this.notificationService.alert({
-                message: `Deleted ${deletedActivitiesCount} activities in ${deletedAccountsCount} accounts`,
-                title: 'The Tinkoff data was deleted'
-              });
-            },
-            error: (error) => {
-              this.isDeletingTinkoff = false;
-              this.changeDetectorRef.markForCheck();
-
-              this.notificationService.alert({
-                message: error?.error?.message ?? error?.message,
-                title: 'Deleting the Tinkoff data failed'
-              });
-            }
-          });
-      },
-      confirmType: ConfirmationDialogType.Warn,
-      title: 'Do you really want to delete all activities imported from Tinkoff?'
-    });
-  }
-
   public onEnrichFromSheet() {
     this.isEnriching = true;
-    this.tinkoffSyncResult = undefined;
 
     this.adminService
       .enrichFromSheet()
@@ -220,98 +174,6 @@ export class GfAdminSettingsComponent implements OnInit {
     });
   }
 
-  public onRemoveTinkoffApiToken() {
-    this.notificationService.confirm({
-      confirmFn: () => {
-        this.dataService
-          .putAdminSetting(PROPERTY_TINKOFF_API_TOKEN, { value: undefined })
-          .subscribe(() => {
-            this.initialize();
-          });
-      },
-      confirmType: ConfirmationDialogType.Warn,
-      title: 'Do you really want to delete the Tinkoff API token?'
-    });
-  }
-
-  public onSetTinkoffApiToken() {
-    this.notificationService.prompt({
-      confirmFn: (value) => {
-        const tinkoffApiToken = value?.trim();
-
-        if (tinkoffApiToken) {
-          this.dataService
-            .putAdminSetting(PROPERTY_TINKOFF_API_TOKEN, {
-              value: tinkoffApiToken
-            })
-            .subscribe(() => {
-              this.initialize();
-            });
-        }
-      },
-      title: 'Please enter your Tinkoff API token.'
-    });
-  }
-
-  public onSyncTinkoff(isDryRun: boolean) {
-    this.openTinkoffAccountsDialog(isDryRun);
-  }
-
-  private openTinkoffAccountsDialog(isDryRun: boolean) {
-    this.adminService
-      .getTinkoffAccounts()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (response) => {
-          const dialogRef = this.dialog.open<
-            GfTinkoffAccountsDialogComponent,
-            AdminTinkoffAccountResponse
-          >(GfTinkoffAccountsDialogComponent, {
-            data: response,
-            width: '50rem',
-            maxHeight: '80vh'
-          });
-
-          dialogRef.afterClosed().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((accountIds: string[] | undefined) => {
-            if (accountIds?.length) {
-              this.syncTinkoffWithAccounts(isDryRun, accountIds);
-            }
-          });
-        },
-        error: (error) => {
-          this.notificationService.alert({
-            message: error?.error?.message ?? error?.message,
-            title: 'Failed to load Tinkoff accounts'
-          });
-        }
-      });
-  }
-
-  private syncTinkoffWithAccounts(isDryRun: boolean, accountIds: string[]) {
-    this.tinkoffSyncResult = undefined;
-    this.isSyncingTinkoff = true;
-
-    this.adminService
-      .syncTinkoffWithAccounts({ dryRun: isDryRun, accountIds })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (result) => {
-          this.tinkoffSyncResult = result;
-          this.isSyncingTinkoff = false;
-          this.changeDetectorRef.markForCheck();
-        },
-        error: (error) => {
-          this.isSyncingTinkoff = false;
-          this.changeDetectorRef.markForCheck();
-
-          this.notificationService.alert({
-            message: error?.error?.message ?? error?.message,
-            title: 'The Tinkoff sync failed'
-          });
-        }
-      });
-  }
-
   public onSetGhostfolioApiKey() {
     this.notificationService.prompt({
       confirmFn: (value) => {
@@ -354,8 +216,6 @@ export class GfAdminSettingsComponent implements OnInit {
         ] as string;
 
         this.hasGhostfolioApiKey = !!ghostfolioApiKey;
-
-        this.hasTinkoffApiToken = Boolean(settings[PROPERTY_TINKOFF_API_TOKEN]);
 
         if (ghostfolioApiKey) {
           this.adminService
