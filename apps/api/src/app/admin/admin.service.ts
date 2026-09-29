@@ -8,6 +8,7 @@ import { MarketDataService } from '@ghostfolio/api/services/market-data/market-d
 import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
 import { SymbolProfileService } from '@ghostfolio/api/services/symbol-profile/symbol-profile.service';
+import { TinkoffService } from '../tinkoff/tinkoff.service';
 import {
   ghostfolioPrefix,
   PROPERTY_CURRENCIES,
@@ -23,6 +24,7 @@ import {
 } from '@ghostfolio/common/helper';
 import {
   AdminData,
+  AdminTinkoffSyncResponse,
   AdminUserResponse,
   AdminUsersResponse,
   AssetProfileIdentifier,
@@ -65,7 +67,8 @@ export class AdminService {
     private readonly marketDataService: MarketDataService,
     private readonly prismaService: PrismaService,
     private readonly propertyService: PropertyService,
-    private readonly symbolProfileService: SymbolProfileService
+    private readonly symbolProfileService: SymbolProfileService,
+    private readonly tinkoffService: TinkoffService
   ) {}
 
   public async addAssetProfile({
@@ -806,5 +809,27 @@ export class AdminService {
     await this.prismaService.importSource.delete({
       where: { id }
     });
+  }
+
+  public async syncImportSource(
+    id: string,
+    dryRun: boolean
+  ): Promise<AdminTinkoffSyncResponse> {
+    const importSource = await this.prismaService.importSource.findUnique({
+      where: { id }
+    });
+
+    if (!importSource) {
+      throw new Error('Import source not found');
+    }
+
+    if (importSource.type === 'T_INVEST') {
+      return this.tinkoffService.sync({
+        isDryRun: dryRun,
+        user: { id: 'admin' } as any
+      });
+    }
+
+    throw new Error(`Sync not supported for import source type: ${importSource.type}`);
   }
 }

@@ -27,6 +27,7 @@ import {
 } from '@ghostfolio/common/helper';
 import {
   AdminData,
+  AdminTinkoffSyncResponse,
   AdminUserResponse,
   AdminUsersResponse,
   EnhancedAssetProfile,
@@ -408,5 +409,15 @@ export class AdminController {
   @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
   public async deleteImportSource(@Param('id') id: string): Promise<void> {
     return this.adminService.deleteImportSource(id);
+  }
+
+  @Post('import-sources/:id/sync')
+  @HasPermission(permissions.accessAdminControl)
+  @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
+  public async syncImportSource(
+    @Param('id') id: string,
+    @Body('dryRun') dryRun = false
+  ): Promise<AdminTinkoffSyncResponse> {
+    return this.adminService.syncImportSource(id, dryRun);
   }
 }

@@ -121,12 +121,24 @@ export class GfAdminImportSourceComponent implements OnInit {
     });
   }
 
-  protected onSyncImportSource(): void {
-    // TODO: Implement sync for import source
-    this.notificationService.alert({
-      title: $localize`Sync not implemented yet`,
-      message: $localize`Sync functionality for import sources is not implemented yet.`
-    });
+  protected onSyncImportSource(importSource: ImportSource): void {
+    this.adminService
+      .syncImportSource(importSource.id, false)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (result) => {
+          this.notificationService.alert({
+            message: `Imported: ${result.importedActivitiesCount}, Duplicates: ${result.duplicateActivitiesCount}, Failed: ${result.failedActivitiesCount}`,
+            title: 'Sync completed'
+          });
+        },
+        error: (error) => {
+          this.notificationService.alert({
+            message: error?.error?.message ?? error?.message,
+            title: 'Sync failed'
+          });
+        }
+      });
   }
 
   private deleteImportSource(aId: string) {

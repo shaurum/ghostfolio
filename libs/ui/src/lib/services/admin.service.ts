@@ -328,6 +328,13 @@ export class AdminService {
     return this.http.get<ImportSource[]>('/api/v1/admin/import-sources');
   }
 
+  public syncImportSource(id: string, dryRun: boolean = false) {
+    return this.http.post<AdminTinkoffSyncResponse>(
+      `/api/v1/admin/import-sources/${id}/sync`,
+      { dryRun }
+    );
+  }
+
   public createImportSource(data: CreateImportSourceDto) {
     return this.http.post<ImportSource>('/api/v1/admin/import-sources', data);
   }
