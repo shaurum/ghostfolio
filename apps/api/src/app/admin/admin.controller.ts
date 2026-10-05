@@ -27,6 +27,7 @@ import {
 } from '@ghostfolio/common/helper';
 import {
   AdminData,
+  AdminTinkoffAccountResponse,
   AdminTinkoffSyncResponse,
   AdminUserResponse,
   AdminUsersResponse,
@@ -418,6 +419,15 @@ export class AdminController {
     @Param('id') id: string,
     @Body('dryRun') dryRun = false
   ): Promise<AdminTinkoffSyncResponse> {
-    return this.adminService.syncImportSource(id, dryRun);
+    return this.adminService.syncImportSource(id, dryRun, this.request.user);
+  }
+
+  @Post('import-sources/:id/accounts')
+  @HasPermission(permissions.accessAdminControl)
+  @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
+  public async getImportSourceAccounts(
+    @Param('id') id: string
+  ): Promise<AdminTinkoffAccountResponse> {
+    return this.adminService.validateImportSource(id);
   }
 }

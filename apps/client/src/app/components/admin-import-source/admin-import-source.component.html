@@ -72,6 +72,12 @@
             class="no-max-width"
             xPosition="before"
           >
+            <button mat-menu-item (click)="onTestImportSource(element)">
+              <span class="align-items-center d-flex">
+                <ion-icon class="mr-2" name="shield-checkmark-outline" />
+                <span i18n>Проверить токен</span>
+              </span>
+            </button>
             <button mat-menu-item (click)="onSyncImportSource(element)">
               <span class="align-items-center d-flex">
                 <ion-icon class="mr-2" name="sync-outline" />
@@ -102,7 +108,10 @@
 
   @if (importSources?.length === 0) {
     <div class="text-center text-muted py-4">
-      <small i18n>Источников импорта не найдено. Нажмите "Добавить источник" для создания.</small>
+      <small i18n
+        >Источников импорта не найдено. Нажмите "Добавить источник" для
+        создания.</small
+      >
     </div>
   }
 

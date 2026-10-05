@@ -301,7 +301,13 @@ export class AdminService {
     );
   }
 
-  public syncTinkoffWithAccounts({ dryRun, accountIds }: { dryRun: boolean; accountIds?: string[] }) {
+  public syncTinkoffWithAccounts({
+    dryRun,
+    accountIds
+  }: {
+    dryRun: boolean;
+    accountIds?: string[];
+  }) {
     const params = new HttpParams().set('dryRun', String(dryRun));
 
     return this.http.post<AdminTinkoffSyncResponse>(
@@ -340,10 +346,20 @@ export class AdminService {
   }
 
   public updateImportSource(id: string, data: UpdateImportSourceDto) {
-    return this.http.patch<ImportSource>(`/api/v1/admin/import-sources/${id}`, data);
+    return this.http.patch<ImportSource>(
+      `/api/v1/admin/import-sources/${id}`,
+      data
+    );
   }
 
   public deleteImportSource(id: string) {
     return this.http.delete<void>(`/api/v1/admin/import-sources/${id}`);
+  }
+
+  public fetchImportSourceAccounts(id: string) {
+    return this.http.post<AdminTinkoffAccountResponse>(
+      `/api/v1/admin/import-sources/${id}/accounts`,
+      {}
+    );
   }
 }

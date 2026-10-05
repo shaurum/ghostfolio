@@ -1,3 +1,4 @@
+import { ActivitiesService } from '@ghostfolio/api/app/activities/activities.service';
 import { ImportService } from '@ghostfolio/api/app/import/import.service';
 import { DataProviderService } from '@ghostfolio/api/services/data-provider/data-provider.service';
 import { FetchService } from '@ghostfolio/api/services/fetch/fetch.service';
@@ -21,8 +22,6 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DataSource, Type } from '@prisma/client';
 import { Big } from 'big.js';
 import ms from 'ms';
-
-import { ActivitiesService } from '@ghostfolio/api/app/activities/activities.service';
 
 import {
   TinkoffAccount,
@@ -118,10 +117,12 @@ export class TinkoffService {
     return { deletedAccountsCount, deletedActivitiesCount };
   }
 
-  public async getAccountsForPreview(): Promise<AdminTinkoffAccountResponse> {
-    const token = (
-      await this.propertyService.getByKey<string>(PROPERTY_TINKOFF_API_TOKEN)
-    )?.trim();
+  public async getAccountsForPreview({
+    apiKey
+  }: {
+    apiKey?: string;
+  } = {}): Promise<AdminTinkoffAccountResponse> {
+    const token = await this.resolveApiToken({ apiKey });
 
     if (!token) {
       throw new BadRequestException(
@@ -172,17 +173,17 @@ export class TinkoffService {
   }
 
   public async sync({
+    apiKey,
     isDryRun,
     user,
     accountIds
   }: {
+    apiKey?: string;
     isDryRun: boolean;
     user: UserWithSettings;
     accountIds?: string[];
   }): Promise<AdminTinkoffSyncResponse> {
-    const token = (
-      await this.propertyService.getByKey<string>(PROPERTY_TINKOFF_API_TOKEN)
-    )?.trim();
+    const token = await this.resolveApiToken({ apiKey });
 
     if (!token) {
       throw new BadRequestException(
@@ -348,6 +349,20 @@ export class TinkoffService {
     };
   }
 
+  private async resolveApiToken({
+    apiKey
+  }: {
+    apiKey?: string;
+  }): Promise<string | undefined> {
+    const token =
+      apiKey?.trim() ||
+      (
+        await this.propertyService.getByKey<string>(PROPERTY_TINKOFF_API_TOKEN)
+      )?.trim();
+
+    return token || undefined;
+  }
+
   private async getActivitiesOfSupportedSymbols(
     activitiesDto: CreateOrderDto[]
   ): Promise<CreateOrderDto[]> {
@@ -506,9 +521,7 @@ export class TinkoffService {
       quantity = 1;
       unitPrice = new Big(payment).abs().toNumber();
     } else {
-      quantity = new Big(
-        operation.quantityDone ?? operation.quantity ?? '0'
-      )
+      quantity = new Big(operation.quantityDone ?? operation.quantity ?? '0')
         .abs()
         .toNumber();
       unitPrice = new Big(price).abs().toNumber();
@@ -548,19 +561,18 @@ export class TinkoffService {
         try {
           const dateString = operation.date.slice(0, 10);
 
-          const historical =
-            await this.dataProviderService.getHistoricalRaw({
-              assetProfileIdentifiers: [
-                {
-                  dataSource: DataSource.MOSCOW_EXCHANGE,
-                  symbol
-                }
-              ],
-              from: new Date(
-                new Date(operation.date).getTime() - 7 * 24 * 3600 * 1000
-              ),
-              to: new Date(operation.date)
-            });
+          const historical = await this.dataProviderService.getHistoricalRaw({
+            assetProfileIdentifiers: [
+              {
+                dataSource: DataSource.MOSCOW_EXCHANGE,
+                symbol
+              }
+            ],
+            from: new Date(
+              new Date(operation.date).getTime() - 7 * 24 * 3600 * 1000
+            ),
+            to: new Date(operation.date)
+          });
 
           const prices =
             historical[

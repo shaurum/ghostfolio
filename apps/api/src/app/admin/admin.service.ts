@@ -8,7 +8,6 @@ import { MarketDataService } from '@ghostfolio/api/services/market-data/market-d
 import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
 import { SymbolProfileService } from '@ghostfolio/api/services/symbol-profile/symbol-profile.service';
-import { TinkoffService } from '../tinkoff/tinkoff.service';
 import {
   ghostfolioPrefix,
   PROPERTY_CURRENCIES,
@@ -24,6 +23,7 @@ import {
 } from '@ghostfolio/common/helper';
 import {
   AdminData,
+  AdminTinkoffAccountResponse,
   AdminTinkoffSyncResponse,
   AdminUserResponse,
   AdminUsersResponse,
@@ -31,7 +31,7 @@ import {
   EnhancedAssetProfile,
   ImportSource
 } from '@ghostfolio/common/interfaces';
-import { PropertyKey } from '@ghostfolio/common/types';
+import { PropertyKey, UserWithSettings } from '@ghostfolio/common/types';
 
 import {
   BadRequestException,
@@ -53,6 +53,8 @@ import {
 import { differenceInDays } from 'date-fns';
 import { StatusCodes, getReasonPhrase } from 'http-status-codes';
 import { randomUUID } from 'node:crypto';
+
+import { TinkoffService } from '../tinkoff/tinkoff.service';
 
 @Injectable()
 export class AdminService {
@@ -787,9 +789,11 @@ export class AdminService {
     });
   }
 
-  public async createImportSource(
-    data: { name: string; type: string; apiKey: string }
-  ): Promise<ImportSource> {
+  public async createImportSource(data: {
+    name: string;
+    type: string;
+    apiKey: string;
+  }): Promise<ImportSource> {
     return this.prismaService.importSource.create({
       data
     });
@@ -811,25 +815,55 @@ export class AdminService {
     });
   }
 
+  public async validateImportSource(
+    id: string
+  ): Promise<AdminTinkoffAccountResponse> {
+    const importSource = await this.prismaService.importSource.findUnique({
+      where: { id }
+    });
+
+    if (!importSource) {
+      throw new NotFoundException(
+        `Import source with ID "${id}" has not been found`
+      );
+    }
+
+    if (importSource.type !== 'T_INVEST') {
+      throw new BadRequestException(
+        `Validation not supported for import source type: ${importSource.type}`
+      );
+    }
+
+    return this.tinkoffService.getAccountsForPreview({
+      apiKey: importSource.apiKey
+    });
+  }
+
   public async syncImportSource(
     id: string,
-    dryRun: boolean
+    dryRun: boolean,
+    user: UserWithSettings
   ): Promise<AdminTinkoffSyncResponse> {
     const importSource = await this.prismaService.importSource.findUnique({
       where: { id }
     });
 
     if (!importSource) {
-      throw new Error('Import source not found');
+      throw new NotFoundException(
+        `Import source with ID "${id}" has not been found`
+      );
     }
 
     if (importSource.type === 'T_INVEST') {
       return this.tinkoffService.sync({
+        apiKey: importSource.apiKey,
         isDryRun: dryRun,
-        user: { id: 'admin' } as any
+        user
       });
     }
 
-    throw new Error(`Sync not supported for import source type: ${importSource.type}`);
+    throw new BadRequestException(
+      `Sync not supported for import source type: ${importSource.type}`
+    );
   }
 }

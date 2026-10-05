@@ -1,3 +1,9 @@
+import {
+  CreateImportSourceDto,
+  UpdateImportSourceDto
+} from '@ghostfolio/common/dtos';
+import { ConfirmationDialogType } from '@ghostfolio/common/enums';
+import { ImportSource } from '@ghostfolio/common/interfaces';
 import { NotificationService } from '@ghostfolio/ui/notifications';
 import { AdminService, DataService } from '@ghostfolio/ui/services';
 
@@ -19,19 +25,17 @@ import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
 import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { ConfirmationDialogType } from '@ghostfolio/common/enums';
-import { ImportSource } from '@ghostfolio/common/interfaces';
-import { CreateImportSourceDto, UpdateImportSourceDto } from '@ghostfolio/common/dtos';
-import { get } from 'lodash';
-import { DeviceDetectorService } from 'ngx-device-detector';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
   createOutline,
   ellipsisHorizontal,
+  shieldCheckmarkOutline,
   syncOutline,
   trashOutline
 } from 'ionicons/icons';
+import { get } from 'lodash';
+import { DeviceDetectorService } from 'ngx-device-detector';
 
 import { GfCreateOrUpdateImportSourceDialogComponent } from './create-or-update-import-source-dialog/create-or-update-import-source-dialog.component';
 import { CreateOrUpdateImportSourceDialogParams } from './create-or-update-import-source-dialog/interfaces/interfaces';
@@ -56,11 +60,7 @@ export class GfAdminImportSourceComponent implements OnInit {
   public readonly locale = input('ru');
 
   protected dataSource = new MatTableDataSource<ImportSource>();
-  protected readonly displayedColumns = [
-    'name',
-    'type',
-    'actions'
-  ];
+  protected readonly displayedColumns = ['name', 'type', 'actions'];
   protected readonly pageSize = 10;
   protected importSources: ImportSource[];
 
@@ -78,7 +78,13 @@ export class GfAdminImportSourceComponent implements OnInit {
   private readonly router = inject(Router);
 
   public constructor() {
-    addIcons({ createOutline, ellipsisHorizontal, syncOutline, trashOutline });
+    addIcons({
+      createOutline,
+      ellipsisHorizontal,
+      shieldCheckmarkOutline,
+      syncOutline,
+      trashOutline
+    });
   }
 
   public ngOnInit() {
@@ -136,6 +142,30 @@ export class GfAdminImportSourceComponent implements OnInit {
           this.notificationService.alert({
             message: error?.error?.message ?? error?.message,
             title: 'Sync failed'
+          });
+        }
+      });
+  }
+
+  protected onTestImportSource(importSource: ImportSource): void {
+    this.adminService
+      .fetchImportSourceAccounts(importSource.id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ accounts }) => {
+          this.notificationService.alert({
+            message: accounts
+              .map(({ id, name, status }) => {
+                return `${name} (${id}) — ${status}`;
+              })
+              .join(', '),
+            title: 'Token is valid'
+          });
+        },
+        error: (error) => {
+          this.notificationService.alert({
+            message: error?.error?.message ?? error?.message,
+            title: 'Token check failed'
           });
         }
       });
@@ -223,7 +253,12 @@ export class GfAdminImportSourceComponent implements OnInit {
       });
   }
 
-  private openUpdateImportSourceDialog({ id, name, type, apiKey }: ImportSource) {
+  private openUpdateImportSourceDialog({
+    id,
+    name,
+    type,
+    apiKey
+  }: ImportSource) {
     const dialogRef = this.dialog.open<
       GfCreateOrUpdateImportSourceDialogComponent,
       CreateOrUpdateImportSourceDialogParams
