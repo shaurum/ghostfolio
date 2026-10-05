@@ -13,6 +13,7 @@ import { SymbolProfileModule } from '@ghostfolio/api/services/symbol-profile/sym
 
 import { Module } from '@nestjs/common';
 
+import { TinkoffModule } from '../tinkoff/tinkoff.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 import { QueueModule } from './queue/queue.module';
@@ -31,6 +32,7 @@ import { QueueModule } from './queue/queue.module';
     PropertyModule,
     QueueModule,
     SymbolProfileModule,
+    TinkoffModule,
     TransformDataSourceInRequestModule
   ],
   controllers: [AdminController],

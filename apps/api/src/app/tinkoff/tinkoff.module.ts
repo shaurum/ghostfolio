@@ -22,6 +22,7 @@ import { TinkoffService } from './tinkoff.service';
     PrismaModule,
     PropertyModule
   ],
-  providers: [TinkoffService]
+  providers: [TinkoffService],
+  exports: [TinkoffService]
 })
 export class TinkoffModule {}
