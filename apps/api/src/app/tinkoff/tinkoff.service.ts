@@ -88,6 +88,7 @@ export class TinkoffService {
     'PSAU',
     'PSBB_EQ',
     'PSSU',
+    'SPBRU',
     'TQBR',
     'TQCB',
     'TQDB',
@@ -429,6 +430,15 @@ export class TinkoffService {
     };
   }
 
+  /**
+   * Tinkoff reports a split with a dedicated ticker, which is suffixed with an
+   * at sign, for example TMOS@. The operations belong to the security itself,
+   * so the suffix is removed to keep the position in a single asset.
+   */
+  private static normalizeTicker(ticker: string | undefined): string {
+    return ticker?.trim().replace(/@$/, '').toUpperCase();
+  }
+
   private async resolveApiToken({
     apiKey
   }: {
@@ -646,26 +656,31 @@ export class TinkoffService {
       });
     }
 
+    // The ticker and the class code of the operation itself identify the
+    // security. The instrument is not a reliable source: for the operations of
+    // a corporate event, for example the exchange of a share for another one,
+    // the instrument of the position it was converted into is reported.
+    const ticker = TinkoffService.normalizeTicker(operation.ticker);
+
+    if (!ticker) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}) due to a missing ticker`
+      );
+
+      return undefined;
+    }
+
+    if (!TinkoffService.SUPPORTED_CLASS_CODES.includes(operation.classCode)) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}, ${ticker} ${operation.classCode}) due to unsupported class code`
+      );
+
+      return undefined;
+    }
+
     const instrument = await this.getInstrument({ operation, token });
-
-    if (!instrument?.ticker) {
-      this.logger.debug(
-        `Skipping operation "${operation.id}" (${operation.type}) due to unresolved instrument ${operation.instrumentUid ?? operation.positionUid ?? operation.figi}`
-      );
-
-      return undefined;
-    }
-
-    if (!TinkoffService.SUPPORTED_CLASS_CODES.includes(instrument.classCode)) {
-      this.logger.debug(
-        `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker} ${instrument.classCode}) due to unsupported class code`
-      );
-
-      return undefined;
-    }
-
     const price = this.toNumber(operation.price);
-    const symbol = `${instrument.ticker.toUpperCase()}.MOEX`;
+    const symbol = `${ticker}.MOEX`;
     let unitPrice: number;
     let quantity: number;
 
@@ -677,6 +692,30 @@ export class TinkoffService {
         .abs()
         .toNumber();
       unitPrice = new Big(price).abs().toNumber();
+    }
+
+    if (type === Type.SELL) {
+      // A position can be closed only with the securities it holds. Tinkoff
+      // reports the securities of a corporate event, such as a split or an
+      // exchange, without a corresponding acquisition, which would turn the
+      // holding into a short position.
+      const balance = balances.get(symbol) ?? 0;
+
+      if (balance <= 0) {
+        this.logger.warn(
+          `Skipping the sale of ${quantity} "${symbol}" (${operation.description ?? operation.type}), because the position does not hold any of it`
+        );
+
+        return undefined;
+      }
+
+      if (quantity > balance) {
+        this.logger.warn(
+          `Reducing the sale of ${quantity} "${symbol}" (${operation.description ?? operation.type}) to the ${balance} securities of the position, the remaining ${quantity - balance} have no acquisition`
+        );
+
+        quantity = balance;
+      }
     }
 
     if (operation.type === 'OPERATION_TYPE_BOND_REPAYMENT') {
@@ -700,7 +739,7 @@ export class TinkoffService {
 
       if (balance <= 0 || payment <= 0) {
         this.logger.debug(
-          `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker}) due to zero balance or payment`
+          `Skipping operation "${operation.id}" (${operation.type}, ${ticker}) due to zero balance or payment`
         );
 
         return undefined;
@@ -721,7 +760,7 @@ export class TinkoffService {
 
     if (quantity <= 0) {
       this.logger.debug(
-        `Skipping operation "${operation.id}" (${operation.type}, ${instrument.ticker}) due to quantity ${operation.quantity}`
+        `Skipping operation "${operation.id}" (${operation.type}, ${ticker}) due to quantity ${operation.quantity}`
       );
 
       return undefined;
