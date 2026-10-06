@@ -44,6 +44,7 @@ import {
 } from '@ghostfolio/common/types';
 
 import { Injectable } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { Account, DataSource, Prisma } from '@prisma/client';
 import { Big } from 'big.js';
 import { isISIN } from 'class-validator';
@@ -57,6 +58,8 @@ import { AssetProfileToCreate } from './interfaces/asset-profile-to-create.inter
 
 @Injectable()
 export class ImportService {
+  private readonly logger = new Logger(ImportService.name);
+
   public constructor(
     private readonly accountService: AccountService,
     private readonly activitiesService: ActivitiesService,
@@ -481,14 +484,31 @@ export class ImportService {
           // be removed together with the source. Accounts of an earlier import
           // are not linked yet.
           if (accountWithBalances.importSourceId && !isDryRun) {
-            await this.prismaService.account.updateMany({
-              data: { importSourceId: accountWithBalances.importSourceId },
-              where: {
-                id: accountWithBalances.id,
-                importSourceId: { not: accountWithBalances.importSourceId },
-                userId: user.id
-              }
-            });
+            try {
+              await this.prismaService.account.updateMany({
+                data: { importSourceId: accountWithBalances.importSourceId },
+                where: {
+                  id: accountWithBalances.id,
+                  // The condition must match an unset foreign key as well:
+                  // "not" excludes NULL in SQL
+                  OR: [
+                    { importSourceId: null },
+                    {
+                      importSourceId: {
+                        not: accountWithBalances.importSourceId
+                      }
+                    }
+                  ],
+                  userId: user.id
+                }
+              });
+            } catch (error) {
+              this.logger.error(
+                `Could not link the account "${accountWithBalances.id}" to the import source: ${
+                  error instanceof Error ? error.message : String(error)
+                }`
+              );
+            }
           }
 
           continue;
