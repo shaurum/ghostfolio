@@ -9,6 +9,7 @@ import { ConfigurationService } from '@ghostfolio/api/services/configuration/con
 import { DataProviderService } from '@ghostfolio/api/services/data-provider/data-provider.service';
 import { ExchangeRateDataService } from '@ghostfolio/api/services/exchange-rate-data/exchange-rate-data.service';
 import { MarketDataService } from '@ghostfolio/api/services/market-data/market-data.service';
+import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { DataGatheringService } from '@ghostfolio/api/services/queues/data-gathering/data-gathering.service';
 import { SymbolProfileService } from '@ghostfolio/api/services/symbol-profile/symbol-profile.service';
 import { TagService } from '@ghostfolio/api/services/tag/tag.service';
@@ -67,6 +68,7 @@ export class ImportService {
     private readonly marketDataService: MarketDataService,
     private readonly platformService: PlatformService,
     private readonly portfolioService: PortfolioService,
+    private readonly prismaService: PrismaService,
     private readonly symbolProfileService: SymbolProfileService,
     private readonly tagService: TagService
   ) {}
@@ -475,6 +477,30 @@ export class ImportService {
             return id === accountWithBalances.id;
           })
         ) {
+          // Link the account to the import source, so that its activities can
+          // be removed together with the source. Accounts of an earlier import
+          // are not linked yet.
+          if (
+            accountWithBalances.importSourceId &&
+            !isDryRun &&
+            !existingAccountsOfUser.find(({ id, importSourceId }) => {
+              return (
+                id === accountWithBalances.id &&
+                importSourceId === accountWithBalances.importSourceId
+              );
+            })
+          ) {
+            await this.prismaService.account.update({
+              data: { importSourceId: accountWithBalances.importSourceId },
+              where: {
+                id_userId: {
+                  id: accountWithBalances.id,
+                  userId: user.id
+                }
+              }
+            });
+          }
+
           continue;
         }
 

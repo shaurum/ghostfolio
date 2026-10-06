@@ -24,6 +24,7 @@ import {
 import {
   AdminData,
   AdminTinkoffAccountResponse,
+  AdminTinkoffDeleteResponse,
   AdminTinkoffSyncStatus,
   AdminUserResponse,
   AdminUsersResponse,
@@ -824,6 +825,45 @@ export class AdminService {
     });
   }
 
+  /**
+   * Removes the activities and the accounts which were created by the
+   * synchronization of an import source, so that it can be run again from
+   * scratch.
+   */
+  public async deleteImportSourceActivities(
+    id: string,
+    user: UserWithSettings
+  ): Promise<AdminTinkoffDeleteResponse> {
+    const importSource = await this.prismaService.importSource.findUnique({
+      where: { id }
+    });
+
+    if (!importSource) {
+      throw new NotFoundException(
+        `Import source with ID "${id}" has not been found`
+      );
+    }
+
+    if (importSource.type !== 'T_INVEST') {
+      throw new BadRequestException(
+        `Deleting the imported activities is not supported for import source type: ${importSource.type}`
+      );
+    }
+
+    const result = await this.tinkoffService.deleteAllImported({
+      importSourceId: id,
+      user
+    });
+
+    this.syncStatusByImportSourceId.delete(id);
+
+    this.logger.log(
+      `Deleted ${result.deletedActivitiesCount} activities in ${result.deletedAccountsCount} accounts of the import source "${id}"`
+    );
+
+    return result;
+  }
+
   public async validateImportSource(
     id: string
   ): Promise<AdminTinkoffAccountResponse> {
@@ -914,6 +954,7 @@ export class AdminService {
     this.tinkoffService
       .sync({
         apiKey: importSource.apiKey,
+        importSourceId: id,
         isDryRun: dryRun,
         onProgress: (progress) => {
           this.updateSyncStatus({ id, progress });

@@ -34,6 +34,7 @@ import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
   alertCircleOutline,
+  closeCircleOutline,
   createOutline,
   ellipsisHorizontal,
   shieldCheckmarkOutline,
@@ -92,6 +93,7 @@ export class GfAdminImportSourceComponent implements OnInit {
   public constructor() {
     addIcons({
       alertCircleOutline,
+      closeCircleOutline,
       createOutline,
       ellipsisHorizontal,
       shieldCheckmarkOutline,
@@ -214,7 +216,49 @@ export class GfAdminImportSourceComponent implements OnInit {
       });
   }
 
-  protected getSyncStatus(id: string): AdminTinkoffSyncStatus {
+  protected onDeleteImportedActivities(importSource: ImportSource) {
+    const status = this.getSyncStatus(importSource.id);
+
+    if (status?.isRunning) {
+      return;
+    }
+
+    this.notificationService.confirm({
+      confirmFn: () => {
+        this.deleteImportedActivities(importSource.id);
+      },
+      confirmType: ConfirmationDialogType.Warn,
+      title: $localize`Do you really want to delete the imported activities of "${importSource.name}"? The accounts of the import source are removed as well, so it can be synchronized again from scratch.`
+    });
+  }
+
+  private deleteImportedActivities(id: string) {
+    this.adminService
+      .deleteImportSourceActivities(id)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: ({ deletedAccountsCount, deletedActivitiesCount }) => {
+          delete this.syncStatusByImportSourceId[id];
+
+          this.dataService.updateInfo();
+
+          this.notificationService.alert({
+            message: `Deleted ${deletedActivitiesCount} activities in ${deletedAccountsCount} accounts`,
+            title: 'Imported activities deleted'
+          });
+
+          this.fetchImportSources();
+        },
+        error: (error) => {
+          this.notificationService.alert({
+            message: error?.error?.message ?? error?.message,
+            title: 'Failed to delete the imported activities'
+          });
+        }
+      });
+  }
+
+  private getSyncStatus(id: string): AdminTinkoffSyncStatus {
     return this.syncStatusByImportSourceId[id];
   }
 

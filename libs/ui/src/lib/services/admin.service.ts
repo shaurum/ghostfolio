@@ -348,6 +348,12 @@ export class AdminService {
     );
   }
 
+  public deleteImportSourceActivities(id: string) {
+    return this.http.delete<AdminTinkoffDeleteResponse>(
+      `/api/v1/admin/import-sources/${id}/imported-activities`
+    );
+  }
+
   public createImportSource(data: CreateImportSourceDto) {
     return this.http.post<ImportSource>('/api/v1/admin/import-sources', data);
   }

@@ -110,13 +110,21 @@ export class TinkoffService {
   ) {}
 
   public async deleteAllImported({
+    importSourceId,
     user
   }: {
+    importSourceId?: string;
     user: UserWithSettings;
   }): Promise<AdminTinkoffDeleteResponse> {
     const accounts = await this.prismaService.account.findMany({
       select: { id: true },
       where: {
+        ...(importSourceId
+          ? // The accounts of an import source which was created before the
+            // accounts were linked to it are not distinguishable, so the
+            // prefix of the account ID is used as a fallback
+            { OR: [{ importSourceId }, { importSourceId: null }] }
+          : {}),
         id: { startsWith: TinkoffService.MANUAL_ACTIVITY_PREFIX },
         userId: user.id
       }
@@ -209,12 +217,14 @@ export class TinkoffService {
   public async sync({
     accountIds,
     apiKey,
+    importSourceId,
     isDryRun,
     onProgress,
     user
   }: {
     accountIds?: string[];
     apiKey?: string;
+    importSourceId?: string;
     isDryRun: boolean;
     onProgress?: (progress: TinkoffSyncProgress) => void;
     user: UserWithSettings;
@@ -284,6 +294,7 @@ export class TinkoffService {
           comment: id,
           currency: 'RUB',
           id: `${TinkoffService.MANUAL_ACTIVITY_PREFIX}${id}`,
+          importSourceId,
           name,
           platformId: TinkoffService.PLATFORM_ID
         };

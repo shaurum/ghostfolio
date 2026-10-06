@@ -28,6 +28,7 @@ import {
 import {
   AdminData,
   AdminTinkoffAccountResponse,
+  AdminTinkoffDeleteResponse,
   AdminTinkoffSyncStatus,
   AdminUserResponse,
   AdminUsersResponse,
@@ -429,6 +430,18 @@ export class AdminController {
     @Param('id') id: string
   ): Promise<AdminTinkoffSyncStatus> {
     return this.adminService.getImportSourceSyncStatus(id);
+  }
+
+  @Delete('import-sources/:id/imported-activities')
+  @HasPermission(permissions.accessAdminControl)
+  @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
+  public async deleteImportSourceActivities(
+    @Param('id') id: string
+  ): Promise<AdminTinkoffDeleteResponse> {
+    return this.adminService.deleteImportSourceActivities(
+      id,
+      this.request.user
+    );
   }
 
   @Post('import-sources/:id/accounts')

@@ -151,11 +151,21 @@
                 <span i18n>Редактировать</span>
               </span>
             </button>
+            <button
+              mat-menu-item
+              [disabled]="getSyncStatus(element.id)?.isRunning"
+              (click)="onDeleteImportedActivities(element)"
+            >
+              <span class="align-items-center d-flex text-danger">
+                <ion-icon class="mr-2" name="trash-outline" />
+                <span i18n>Удалить импорт</span>
+              </span>
+            </button>
             <hr class="m-0" />
             <button mat-menu-item (click)="onDeleteImportSource(element.id)">
               <span class="align-items-center d-flex">
-                <ion-icon class="mr-2" name="trash-outline" />
-                <span i18n>Удалить</span>
+                <ion-icon class="mr-2" name="close-circle-outline" />
+                <span i18n>Удалить источник</span>
               </span>
             </button>
           </mat-menu>

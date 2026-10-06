@@ -29,23 +29,26 @@ model Access {
 }
 
 model Account {
-  activities Order[]
-  balances   AccountBalance[]
-  comment    String?
-  createdAt  DateTime         @default(now())
-  currency   String?
-  id         String           @default(uuid())
-  name       String?
-  platform   Platform?        @relation(fields: [platformId], references: [id])
-  platformId String?
-  tags       TagsOnAccounts[]
-  updatedAt  DateTime         @updatedAt
-  user       User             @relation(fields: [userId], onDelete: Cascade, references: [id])
-  userId     String
+  activities     Order[]
+  balances       AccountBalance[]
+  comment        String?
+  createdAt      DateTime         @default(now())
+  currency       String?
+  id             String           @default(uuid())
+  importSource   ImportSource?    @relation(fields: [importSourceId], references: [id], onDelete: SetNull)
+  importSourceId String?
+  name           String?
+  platform       Platform?        @relation(fields: [platformId], references: [id])
+  platformId     String?
+  tags           TagsOnAccounts[]
+  updatedAt      DateTime         @updatedAt
+  user           User             @relation(fields: [userId], onDelete: Cascade, references: [id])
+  userId         String
 
   @@id([id, userId])
   @@index([currency])
   @@index([id])
+  @@index([importSourceId])
   @@index([name])
   @@index([userId])
 }
@@ -214,12 +217,13 @@ model Platform {
 }
 
 model ImportSource {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   name      String
   type      String
   apiKey    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  accounts  Account[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([name])
   @@index([type])

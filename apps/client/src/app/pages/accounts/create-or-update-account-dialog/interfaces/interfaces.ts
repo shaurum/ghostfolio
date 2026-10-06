@@ -6,7 +6,7 @@ import { Tag } from '@prisma/client';
 export interface CreateOrUpdateAccountDialogParams {
   account: Omit<
     AccountWithBalance,
-    'createdAt' | 'id' | 'updatedAt' | 'userId'
+    'createdAt' | 'id' | 'importSourceId' | 'updatedAt' | 'userId'
   > & {
     id: string | null;
     tags?: Tag[];
