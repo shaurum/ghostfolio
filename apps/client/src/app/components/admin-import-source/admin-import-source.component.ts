@@ -294,9 +294,17 @@ export class GfAdminImportSourceComponent implements OnInit {
             this.onSyncFinished(status);
           }
         },
-        error: () => {
+        error: (error) => {
           this.syncStatusSubscriptions.get(id)?.unsubscribe();
           this.syncStatusSubscriptions.delete(id);
+
+          this.notificationService.alert({
+            message:
+              error?.error?.message ??
+              error?.message ??
+              'The status of the synchronization could not be read',
+            title: 'Sync interrupted'
+          });
         }
       });
 
@@ -316,6 +324,16 @@ export class GfAdminImportSourceComponent implements OnInit {
     const { result } = status;
 
     if (!result) {
+      if (!status.error) {
+        // The status is only reset when the API has been restarted, which
+        // loses the progress of a running synchronization
+        this.notificationService.alert({
+          message:
+            'The API has been restarted, the progress of the synchronization has been lost. Run the synchronization again.',
+          title: 'Sync interrupted'
+        });
+      }
+
       return;
     }
 

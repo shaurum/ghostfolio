@@ -939,6 +939,10 @@ export class AdminService {
 
     const startedAt = new Date().toISOString();
 
+    this.logger.log(
+      `Starting the synchronization of the import source "${id}" in the background`
+    );
+
     this.syncStatusByImportSourceId.set(id, {
       accountsCount: 0,
       activitiesCount: 0,
@@ -962,6 +966,10 @@ export class AdminService {
         user
       })
       .then((result) => {
+        this.logger.log(
+          `The synchronization of the import source "${id}" imported ${result.importedActivitiesCount} activities (${result.duplicateActivitiesCount} duplicates, ${result.failedActivitiesCount} failed, ${result.skippedActivitiesCount} skipped)`
+        );
+
         this.updateSyncStatus({
           id,
           progress: { stage: TinkoffSyncStage.DONE },
