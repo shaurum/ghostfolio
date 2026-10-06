@@ -28,7 +28,7 @@ import {
 import {
   AdminData,
   AdminTinkoffAccountResponse,
-  AdminTinkoffSyncResponse,
+  AdminTinkoffSyncStatus,
   AdminUserResponse,
   AdminUsersResponse,
   EnhancedAssetProfile,
@@ -418,8 +418,17 @@ export class AdminController {
   public async syncImportSource(
     @Param('id') id: string,
     @Body('dryRun') dryRun = false
-  ): Promise<AdminTinkoffSyncResponse> {
+  ): Promise<AdminTinkoffSyncStatus> {
     return this.adminService.syncImportSource(id, dryRun, this.request.user);
+  }
+
+  @Get('import-sources/:id/sync')
+  @HasPermission(permissions.accessAdminControl)
+  @UseGuards(AuthGuard('jwt'), HasPermissionGuard)
+  public async getImportSourceSyncStatus(
+    @Param('id') id: string
+  ): Promise<AdminTinkoffSyncStatus> {
+    return this.adminService.getImportSourceSyncStatus(id);
   }
 
   @Post('import-sources/:id/accounts')

@@ -3,7 +3,10 @@ import {
   UpdateImportSourceDto
 } from '@ghostfolio/common/dtos';
 import { ConfirmationDialogType } from '@ghostfolio/common/enums';
-import { ImportSource } from '@ghostfolio/common/interfaces';
+import {
+  ImportSource,
+  AdminTinkoffSyncStatus
+} from '@ghostfolio/common/interfaces';
 import { NotificationService } from '@ghostfolio/ui/notifications';
 import { AdminService, DataService } from '@ghostfolio/ui/services';
 
@@ -22,12 +25,15 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatPaginator, MatPaginatorModule } from '@angular/material/paginator';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSort, MatSortModule } from '@angular/material/sort';
 import { MatTableDataSource, MatTableModule } from '@angular/material/table';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { IonIcon } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import {
+  alertCircleOutline,
   createOutline,
   ellipsisHorizontal,
   shieldCheckmarkOutline,
@@ -36,6 +42,7 @@ import {
 } from 'ionicons/icons';
 import { get } from 'lodash';
 import { DeviceDetectorService } from 'ngx-device-detector';
+import { Subscription, switchMap, timer } from 'rxjs';
 
 import { GfCreateOrUpdateImportSourceDialogComponent } from './create-or-update-import-source-dialog/create-or-update-import-source-dialog.component';
 import { CreateOrUpdateImportSourceDialogParams } from './create-or-update-import-source-dialog/interfaces/interfaces';
@@ -48,6 +55,8 @@ import { CreateOrUpdateImportSourceDialogParams } from './create-or-update-impor
     MatDialogModule,
     MatMenuModule,
     MatPaginatorModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
     MatSortModule,
     MatTableModule,
     RouterModule
@@ -60,12 +69,15 @@ export class GfAdminImportSourceComponent implements OnInit {
   public readonly locale = input('ru');
 
   protected dataSource = new MatTableDataSource<ImportSource>();
-  protected readonly displayedColumns = ['name', 'type', 'actions'];
+  protected readonly displayedColumns = ['name', 'type', 'sync', 'actions'];
   protected readonly pageSize = 10;
   protected importSources: ImportSource[];
+  protected syncStatusByImportSourceId: Record<string, AdminTinkoffSyncStatus> =
+    {};
 
   private readonly paginator = viewChild.required(MatPaginator);
   private readonly sort = viewChild.required(MatSort);
+  private readonly syncStatusSubscriptions = new Map<string, Subscription>();
 
   private readonly adminService = inject(AdminService);
   private readonly changeDetectorRef = inject(ChangeDetectorRef);
@@ -79,6 +91,7 @@ export class GfAdminImportSourceComponent implements OnInit {
 
   public constructor() {
     addIcons({
+      alertCircleOutline,
       createOutline,
       ellipsisHorizontal,
       shieldCheckmarkOutline,
@@ -89,6 +102,14 @@ export class GfAdminImportSourceComponent implements OnInit {
 
   public ngOnInit() {
     this.fetchImportSources();
+
+    this.destroyRef.onDestroy(() => {
+      for (const subscription of this.syncStatusSubscriptions.values()) {
+        subscription.unsubscribe();
+      }
+
+      this.syncStatusSubscriptions.clear();
+    });
 
     this.route.queryParams
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -128,23 +149,18 @@ export class GfAdminImportSourceComponent implements OnInit {
   }
 
   protected onSyncImportSource(importSource: ImportSource): void {
+    if (this.getSyncStatus(importSource.id)?.isRunning) {
+      return;
+    }
+
     this.adminService
       .syncImportSource(importSource.id, false)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
-        next: (result) => {
-          this.notificationService.alert({
-            message: [
-              `Accounts: ${result.accountsCount}`,
-              `Operations: ${result.totalOperationsCount}`,
-              `Activities: ${result.activitiesCount}`,
-              `Imported: ${result.importedActivitiesCount}`,
-              `Duplicates: ${result.duplicateActivitiesCount}`,
-              `Failed: ${result.failedActivitiesCount}`,
-              `Skipped: ${result.skippedActivitiesCount}`
-            ].join(', '),
-            title: 'Sync completed'
-          });
+        next: (status) => {
+          this.setSyncStatus(importSource.id, status);
+
+          this.pollSyncStatus(importSource.id);
         },
         error: (error) => {
           this.notificationService.alert({
@@ -196,6 +212,89 @@ export class GfAdminImportSourceComponent implements OnInit {
           });
         }
       });
+  }
+
+  protected getSyncStatus(id: string): AdminTinkoffSyncStatus {
+    return this.syncStatusByImportSourceId[id];
+  }
+
+  protected getProgressValue(status: AdminTinkoffSyncStatus): number {
+    if (!status.accountsCount) {
+      return 0;
+    }
+
+    return Math.min(
+      100,
+      Math.round((100 * status.processedAccountsCount) / status.accountsCount)
+    );
+  }
+
+  private pollSyncStatus(id: string) {
+    this.syncStatusSubscriptions.get(id)?.unsubscribe();
+
+    const subscription = timer(1000, 1000)
+      .pipe(
+        switchMap(() => {
+          return this.adminService.fetchImportSourceSyncStatus(id);
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe({
+        next: (status) => {
+          this.setSyncStatus(id, status);
+
+          if (!status.isRunning) {
+            this.syncStatusSubscriptions.get(id)?.unsubscribe();
+            this.syncStatusSubscriptions.delete(id);
+
+            this.onSyncFinished(status);
+          }
+        },
+        error: () => {
+          this.syncStatusSubscriptions.get(id)?.unsubscribe();
+          this.syncStatusSubscriptions.delete(id);
+        }
+      });
+
+    this.syncStatusSubscriptions.set(id, subscription);
+  }
+
+  private onSyncFinished(status: AdminTinkoffSyncStatus) {
+    if (status.error) {
+      this.notificationService.alert({
+        message: status.error,
+        title: 'Sync failed'
+      });
+
+      return;
+    }
+
+    const { result } = status;
+
+    if (!result) {
+      return;
+    }
+
+    this.notificationService.alert({
+      message: [
+        `Accounts: ${result.accountsCount}`,
+        `Operations: ${result.totalOperationsCount}`,
+        `Activities: ${result.activitiesCount}`,
+        `Imported: ${result.importedActivitiesCount}`,
+        `Duplicates: ${result.duplicateActivitiesCount}`,
+        `Failed: ${result.failedActivitiesCount}`,
+        `Skipped: ${result.skippedActivitiesCount}`
+      ].join(', '),
+      title: 'Sync completed'
+    });
+
+    this.dataService.updateInfo();
+  }
+
+  private setSyncStatus(id: string, status: AdminTinkoffSyncStatus) {
+    this.syncStatusByImportSourceId[id] = status;
+
+    this.changeDetectorRef.markForCheck();
   }
 
   private fetchImportSources() {

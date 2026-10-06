@@ -54,6 +54,63 @@
         </td>
       </ng-container>
 
+      <ng-container matColumnDef="sync">
+        <th *matHeaderCellDef class="px-1" mat-header-cell>
+          <ng-container i18n>Синхронизация</ng-container>
+        </th>
+        <td *matCellDef="let element" class="px-1" mat-cell>
+          @if (getSyncStatus(element.id); as syncStatus) {
+            @if (syncStatus.isRunning) {
+              <div class="d-flex align-items-center">
+                <mat-spinner diameter="16" />
+                <div class="ml-2 w-100">
+                  <small class="d-block text-truncate">
+                    {{ syncStatus.stage }}
+                  </small>
+                  @if (syncStatus.accountsCount > 0) {
+                    <mat-progress-bar
+                      mode="determinate"
+                      [value]="getProgressValue(syncStatus)"
+                    />
+                    <small class="text-muted">
+                      Счетов: {{ syncStatus.processedAccountsCount + 1 }}/{{
+                        syncStatus.accountsCount
+                      }}
+                      @if (syncStatus.processedOperationsCount > 0) {
+                        · Операций: {{ syncStatus.processedOperationsCount }}
+                      }
+                    </small>
+                  }
+                </div>
+              </div>
+            } @else if (syncStatus.error) {
+              <small class="text-danger" [title]="syncStatus.error">
+                <ion-icon name="alert-circle-outline" />
+                Ошибка
+              </small>
+            } @else if (syncStatus.result) {
+              <small
+                class="text-muted"
+                [title]="
+                  'Импортировано: ' +
+                  syncStatus.result.importedActivitiesCount +
+                  ', дубликатов: ' +
+                  syncStatus.result.duplicateActivitiesCount +
+                  ', пропущено: ' +
+                  syncStatus.result.skippedActivitiesCount
+                "
+              >
+                {{ syncStatus.result.importedActivitiesCount }} импортировано
+              </small>
+            } @else {
+              <small class="text-muted">—</small>
+            }
+          } @else {
+            <small class="text-muted">—</small>
+          }
+        </td>
+      </ng-container>
+
       <ng-container matColumnDef="actions">
         <th *matHeaderCellDef class="px-1" mat-header-cell>
           <ng-container i18n>Действия</ng-container>
@@ -78,7 +135,11 @@
                 <span i18n>Проверить токен</span>
               </span>
             </button>
-            <button mat-menu-item (click)="onSyncImportSource(element)">
+            <button
+              mat-menu-item
+              [disabled]="getSyncStatus(element.id)?.isRunning"
+              (click)="onSyncImportSource(element)"
+            >
               <span class="align-items-center d-flex">
                 <ion-icon class="mr-2" name="sync-outline" />
                 <span i18n>Синхронизировать</span>

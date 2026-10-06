@@ -20,6 +20,7 @@ import {
   AdminUsersResponse,
   AdminTinkoffDeleteResponse,
   AdminTinkoffSyncResponse,
+  AdminTinkoffSyncStatus,
   AdminTinkoffAccountResponse,
   AssetProfileIdentifier,
   DataProviderGhostfolioStatusResponse,
@@ -335,9 +336,15 @@ export class AdminService {
   }
 
   public syncImportSource(id: string, dryRun: boolean = false) {
-    return this.http.post<AdminTinkoffSyncResponse>(
+    return this.http.post<AdminTinkoffSyncStatus>(
       `/api/v1/admin/import-sources/${id}/sync`,
       { dryRun }
+    );
+  }
+
+  public fetchImportSourceSyncStatus(id: string) {
+    return this.http.get<AdminTinkoffSyncStatus>(
+      `/api/v1/admin/import-sources/${id}/sync`
     );
   }
 

@@ -24,7 +24,7 @@ import {
 import {
   AdminData,
   AdminTinkoffAccountResponse,
-  AdminTinkoffSyncResponse,
+  AdminTinkoffSyncStatus,
   AdminUserResponse,
   AdminUsersResponse,
   AssetProfileIdentifier,
@@ -54,11 +54,20 @@ import { differenceInDays } from 'date-fns';
 import { StatusCodes, getReasonPhrase } from 'http-status-codes';
 import { randomUUID } from 'node:crypto';
 
+import {
+  TinkoffSyncProgress,
+  TinkoffSyncStage
+} from '../tinkoff/interfaces/tinkoff-sync-progress.interface';
 import { TinkoffService } from '../tinkoff/tinkoff.service';
 
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
+
+  private readonly syncStatusByImportSourceId = new Map<
+    string,
+    AdminTinkoffSyncStatus
+  >();
 
   public constructor(
     private readonly assetProfilesService: AssetProfilesService,
@@ -839,11 +848,31 @@ export class AdminService {
     });
   }
 
+  public getImportSourceSyncStatus(id: string): AdminTinkoffSyncStatus {
+    return (
+      this.syncStatusByImportSourceId.get(id) ?? {
+        accountsCount: 0,
+        activitiesCount: 0,
+        importSourceId: id,
+        isRunning: false,
+        processedAccountsCount: 0,
+        processedOperationsCount: 0,
+        stage: '',
+        updatedAt: new Date().toISOString()
+      }
+    );
+  }
+
+  /**
+   * Starts the synchronization in the background so that the client can follow
+   * its progress via getImportSourceSyncStatus() instead of waiting for the
+   * whole import to finish.
+   */
   public async syncImportSource(
     id: string,
     dryRun: boolean,
     user: UserWithSettings
-  ): Promise<AdminTinkoffSyncResponse> {
+  ): Promise<AdminTinkoffSyncStatus> {
     const importSource = await this.prismaService.importSource.findUnique({
       where: { id }
     });
@@ -854,16 +883,106 @@ export class AdminService {
       );
     }
 
-    if (importSource.type === 'T_INVEST') {
-      return this.tinkoffService.sync({
-        apiKey: importSource.apiKey,
-        isDryRun: dryRun,
-        user
-      });
+    if (importSource.type !== 'T_INVEST') {
+      throw new BadRequestException(
+        `Sync not supported for import source type: ${importSource.type}`
+      );
     }
 
-    throw new BadRequestException(
-      `Sync not supported for import source type: ${importSource.type}`
-    );
+    const runningStatus = this.syncStatusByImportSourceId.get(id);
+
+    if (runningStatus?.isRunning) {
+      throw new ConflictException(
+        'A synchronization is already running for this import source'
+      );
+    }
+
+    const startedAt = new Date().toISOString();
+
+    this.syncStatusByImportSourceId.set(id, {
+      accountsCount: 0,
+      activitiesCount: 0,
+      importSourceId: id,
+      isRunning: true,
+      processedAccountsCount: 0,
+      processedOperationsCount: 0,
+      stage: TinkoffSyncStage.CONNECTING,
+      startedAt,
+      updatedAt: startedAt
+    });
+
+    this.tinkoffService
+      .sync({
+        apiKey: importSource.apiKey,
+        isDryRun: dryRun,
+        onProgress: (progress) => {
+          this.updateSyncStatus({ id, progress });
+        },
+        user
+      })
+      .then((result) => {
+        this.updateSyncStatus({
+          id,
+          progress: { stage: TinkoffSyncStage.DONE },
+          result: {
+            accountsCount: result.accountsCount,
+            activitiesCount: result.activitiesCount,
+            duplicateActivitiesCount: result.duplicateActivitiesCount,
+            failedActivitiesCount: result.failedActivitiesCount,
+            importedActivitiesCount: result.importedActivitiesCount,
+            skippedActivitiesCount: result.skippedActivitiesCount,
+            totalOperationsCount: result.totalOperationsCount
+          }
+        });
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : String(error);
+
+        this.logger.error(
+          `The synchronization of the import source "${id}" failed: ${message}`
+        );
+
+        const currentStatus = this.getImportSourceSyncStatus(id);
+
+        this.syncStatusByImportSourceId.set(id, {
+          ...currentStatus,
+          error: message,
+          finishedAt: new Date().toISOString(),
+          isRunning: false,
+          updatedAt: new Date().toISOString()
+        });
+      });
+
+    return this.getImportSourceSyncStatus(id);
+  }
+
+  private updateSyncStatus({
+    id,
+    progress,
+    result
+  }: {
+    id: string;
+    progress: TinkoffSyncProgress;
+    result?: AdminTinkoffSyncStatus['result'];
+  }) {
+    const currentStatus = this.getImportSourceSyncStatus(id);
+
+    this.syncStatusByImportSourceId.set(id, {
+      ...currentStatus,
+      ...progress,
+      accountsCount: progress.accountsCount ?? currentStatus.accountsCount,
+      activitiesCount:
+        progress.activitiesCount ?? currentStatus.activitiesCount,
+      ...(result ? { finishedAt: new Date().toISOString(), result } : {}),
+      isRunning: !result,
+      processedAccountsCount:
+        progress.processedAccountsCount ?? currentStatus.processedAccountsCount,
+      processedOperationsCount:
+        progress.processedOperationsCount ??
+        currentStatus.processedOperationsCount,
+      totalOperationsCount:
+        progress.totalOperationsCount ?? currentStatus.totalOperationsCount,
+      updatedAt: new Date().toISOString()
+    });
   }
 }

@@ -27,6 +27,10 @@ import { Big } from 'big.js';
 import ms from 'ms';
 
 import {
+  TinkoffSyncProgress,
+  TinkoffSyncStage
+} from './interfaces/tinkoff-sync-progress.interface';
+import {
   TinkoffAccount,
   TinkoffGetAccountsResponse,
   TinkoffGetOperationsByCursorResponse,
@@ -177,15 +181,17 @@ export class TinkoffService {
   }
 
   public async sync({
+    accountIds,
     apiKey,
     isDryRun,
-    user,
-    accountIds
+    onProgress,
+    user
   }: {
+    accountIds?: string[];
     apiKey?: string;
     isDryRun: boolean;
+    onProgress?: (progress: TinkoffSyncProgress) => void;
     user: UserWithSettings;
-    accountIds?: string[];
   }): Promise<AdminTinkoffSyncResponse> {
     const token = await this.resolveApiToken({ apiKey });
 
@@ -194,6 +200,8 @@ export class TinkoffService {
         'The Tinkoff API token is not configured in the admin settings'
       );
     }
+
+    onProgress?.({ stage: TinkoffSyncStage.CONNECTING });
 
     const allAccounts = await this.getAccounts(token);
 
@@ -242,6 +250,8 @@ export class TinkoffService {
       );
     }
 
+    onProgress?.({ stage: TinkoffSyncStage.FETCHING_OPERATIONS });
+
     const accountsWithBalancesDto: CreateAccountWithBalancesDto[] =
       accounts.map(({ id, name }) => {
         return {
@@ -254,45 +264,69 @@ export class TinkoffService {
       });
 
     const activitiesDto: CreateOrderDto[] = [];
+    let processedOperationsCount = 0;
     let skippedActivitiesCount = 0;
+    const accountOverview: AdminTinkoffSyncResponse['accounts'] = [];
 
-    const accountOverview = await Promise.all(
-      accounts.map(async ({ id, name }) => {
-        const operations = await this.getOperations({ accountId: id, token });
-        const accountId = `${TinkoffService.MANUAL_ACTIVITY_PREFIX}${id}`;
+    // The accounts are processed one after another so that the progress can be
+    // reported per account and the per symbol running balances stay correct.
+    for (const { id, name } of accounts) {
+      const operations = await this.getOperations({ accountId: id, token });
+      const accountId = `${TinkoffService.MANUAL_ACTIVITY_PREFIX}${id}`;
 
-        // Process oldest first so the running balance per symbol is correct
-        // (BOND_REPAYMENT_FULL closes the remaining position)
-        const sortedOperations = [...operations].sort((a, b) => {
-          return (
-            new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime()
-          );
+      processedOperationsCount += operations.length;
+
+      onProgress?.({
+        accountsCount: accounts.length,
+        processedAccountsCount: accountOverview.length,
+        processedOperationsCount,
+        stage: `${TinkoffSyncStage.MAPPING_OPERATIONS}: ${name}`
+      });
+
+      // Process oldest first so the running balance per symbol is correct
+      // (BOND_REPAYMENT_FULL closes the remaining position)
+      const sortedOperations = [...operations].sort((a, b) => {
+        return (
+          new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime()
+        );
+      });
+
+      const balances = new Map<string, number>();
+
+      for (const operation of sortedOperations) {
+        const activity = await this.mapOperationToActivity({
+          accountId,
+          balances,
+          operation,
+          token
         });
 
-        const balances = new Map<string, number>();
-
-        for (const operation of sortedOperations) {
-          const activity = await this.mapOperationToActivity({
-            accountId,
-            balances,
-            operation,
-            token
-          });
-
-          if (activity) {
-            activitiesDto.push(activity);
-          } else {
-            skippedActivitiesCount++;
-          }
+        if (activity) {
+          activitiesDto.push(activity);
+        } else {
+          skippedActivitiesCount++;
         }
+      }
 
-        return { accountId, name, operationsCount: operations.length };
-      })
-    );
+      accountOverview.push({
+        accountId,
+        name,
+        operationsCount: operations.length
+      });
+    }
 
     const totalOperationsCount = skippedActivitiesCount + activitiesDto.length;
+
+    onProgress?.({
+      activitiesCount: activitiesDto.length,
+      processedAccountsCount: accounts.length,
+      processedOperationsCount,
+      stage: TinkoffSyncStage.RESOLVING_SYMBOLS,
+      totalOperationsCount
+    });
+
     const activitiesDtoOfSupportedSymbols =
-      await this.getActivitiesOfSupportedSymbols(activitiesDto);
+      await this.getActivitiesOfSupportedSymbols(activitiesDto, onProgress);
 
     skippedActivitiesCount +=
       activitiesDto.length - activitiesDtoOfSupportedSymbols.length;
@@ -306,6 +340,11 @@ export class TinkoffService {
         'None of the Tinkoff activities could be resolved by the Moscow Exchange data provider. Please check the API logs for the underlying data provider errors'
       );
     }
+
+    onProgress?.({
+      activitiesCount: activitiesDtoOfSupportedSymbols.length,
+      stage: TinkoffSyncStage.IMPORTING_ACTIVITIES
+    });
 
     const activities = await this.importService
       .import({
@@ -330,8 +369,12 @@ export class TinkoffService {
       });
 
     if (!isDryRun) {
+      onProgress?.({ stage: TinkoffSyncStage.ENRICHING_ASSET_PROFILES });
+
       await this.enrichAssetProfiles(activitiesDtoOfSupportedSymbols);
     }
+
+    onProgress?.({ stage: TinkoffSyncStage.DONE });
 
     for (const { assetProfile, error } of activities.filter(({ error }) => {
       return error && error.code !== 'IS_DUPLICATE';
@@ -374,7 +417,8 @@ export class TinkoffService {
   }
 
   private async getActivitiesOfSupportedSymbols(
-    activitiesDto: CreateOrderDto[]
+    activitiesDto: CreateOrderDto[],
+    onProgress?: (progress: TinkoffSyncProgress) => void
   ): Promise<CreateOrderDto[]> {
     if (activitiesDto.length === 0) {
       return [];
@@ -388,7 +432,10 @@ export class TinkoffService {
       )
     ];
 
-    const supportedSymbols = await this.resolveSupportedSymbols(symbolIds);
+    const supportedSymbols = await this.resolveSupportedSymbols(
+      symbolIds,
+      onProgress
+    );
 
     const activitiesDtoOfSupportedSymbols = activitiesDto.filter(
       ({ symbol }) => {
@@ -415,6 +462,7 @@ export class TinkoffService {
    */
   private async resolveSupportedSymbols(
     symbols: string[],
+    onProgress?: (progress: TinkoffSyncProgress) => void,
     concurrency = 5
   ): Promise<Set<string>> {
     const supportedSymbols = new Set<string>();
@@ -423,6 +471,7 @@ export class TinkoffService {
     );
 
     const queue = [...symbols];
+    let processedCount = 0;
 
     const workers = Array.from(
       { length: Math.min(concurrency, queue.length) },
@@ -449,6 +498,12 @@ export class TinkoffService {
                 error instanceof Error ? error.message : String(error)
               }`
             );
+          } finally {
+            processedCount++;
+
+            onProgress?.({
+              stage: `${TinkoffSyncStage.RESOLVING_SYMBOLS} (${processedCount}/${symbols.length})`
+            });
           }
         }
       }

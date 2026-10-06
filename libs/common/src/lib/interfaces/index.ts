@@ -48,6 +48,7 @@ import type { AdminEnrichmentResponse } from './responses/admin-enrichment-respo
 import type { AdminTinkoffAccountResponse } from './responses/admin-tinkoff-account-response.interface';
 import type { AdminTinkoffDeleteResponse } from './responses/admin-tinkoff-delete-response.interface';
 import type { AdminTinkoffSyncResponse } from './responses/admin-tinkoff-sync-response.interface';
+import type { AdminTinkoffSyncStatus } from './responses/admin-tinkoff-sync-status.interface';
 import type { AdminUserResponse } from './responses/admin-user-response.interface';
 import type { AdminUsersResponse } from './responses/admin-users-response.interface';
 import type { AiPromptResponse } from './responses/ai-prompt-response.interface';
@@ -126,6 +127,7 @@ export {
   AdminTinkoffAccountResponse,
   AdminTinkoffDeleteResponse,
   AdminTinkoffSyncResponse,
+  AdminTinkoffSyncStatus,
   AiPromptResponse,
   AiServiceHealthResponse,
   ApiKeyResponse,
