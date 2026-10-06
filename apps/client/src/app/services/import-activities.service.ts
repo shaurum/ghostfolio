@@ -11,10 +11,11 @@ import {
   parseDate as parseDateHelper
 } from '@ghostfolio/common/helper';
 import { Activity } from '@ghostfolio/common/interfaces';
+import { AccountWithPlatform } from '@ghostfolio/common/types';
 
 import { HttpClient } from '@angular/common/http';
 import { inject, Service } from '@angular/core';
-import { Account, DataSource, Type as ActivityType } from '@prisma/client';
+import { DataSource, Type as ActivityType } from '@prisma/client';
 import { isFinite, isNumber, isString } from 'lodash';
 import { parse as csvToJson } from 'papaparse';
 import { firstValueFrom } from 'rxjs';
@@ -47,7 +48,7 @@ export class ImportActivitiesService {
   }: {
     fileContent: string;
     isDryRun?: boolean;
-    userAccounts: Account[];
+    userAccounts: AccountWithPlatform[];
   }): Promise<{
     activities: Activity[];
     assetProfiles: CreateAssetProfileWithMarketDataDto[];
@@ -240,7 +241,7 @@ export class ImportActivitiesService {
     userAccounts
   }: {
     item: Record<string, unknown>;
-    userAccounts: Account[];
+    userAccounts: AccountWithPlatform[];
   }) {
     item = this.lowercaseKeys(item);
 

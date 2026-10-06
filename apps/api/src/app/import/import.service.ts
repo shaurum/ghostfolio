@@ -480,23 +480,13 @@ export class ImportService {
           // Link the account to the import source, so that its activities can
           // be removed together with the source. Accounts of an earlier import
           // are not linked yet.
-          if (
-            accountWithBalances.importSourceId &&
-            !isDryRun &&
-            !existingAccountsOfUser.find(({ id, importSourceId }) => {
-              return (
-                id === accountWithBalances.id &&
-                importSourceId === accountWithBalances.importSourceId
-              );
-            })
-          ) {
-            await this.prismaService.account.update({
+          if (accountWithBalances.importSourceId && !isDryRun) {
+            await this.prismaService.account.updateMany({
               data: { importSourceId: accountWithBalances.importSourceId },
               where: {
-                id_userId: {
-                  id: accountWithBalances.id,
-                  userId: user.id
-                }
+                id: accountWithBalances.id,
+                importSourceId: { not: accountWithBalances.importSourceId },
+                userId: user.id
               }
             });
           }
@@ -1166,8 +1156,8 @@ export class ImportService {
   }: {
     accountWithBalances: CreateAccountWithBalancesDto;
     accountsWithBalancesDto: ImportDataDto['accounts'];
-    existingAccountsOfUser: Account[];
-  }): Account {
+    existingAccountsOfUser: Pick<Account, 'currency' | 'id' | 'name'>[];
+  }): Pick<Account, 'currency' | 'id' | 'name'> {
     const matchingAccountsOfUser = existingAccountsOfUser.filter(
       ({ currency, name }) => {
         return (
