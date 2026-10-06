@@ -57,7 +57,10 @@ export class MoscowExchangeService implements DataProviderInterface {
 
   private async fetchJson(
     url: string,
-    { requestTimeout, retries = 1 }: { requestTimeout: number; retries?: number }
+    {
+      requestTimeout,
+      retries = 1
+    }: { requestTimeout: number; retries?: number }
   ) {
     let lastError: Error;
 
@@ -111,10 +114,9 @@ export class MoscowExchangeService implements DataProviderInterface {
       const { assetClass, assetSubClass } = this.parseAssetClass(
         description['GROUP']
       );
-      const currency =
-        primaryBoard?.currencyid
-          ? this.convertCurrency(primaryBoard.currencyid)
-          : this.CURRENCY;
+      const currency = primaryBoard?.currencyid
+        ? this.convertCurrency(primaryBoard.currencyid)
+        : this.CURRENCY;
 
       return {
         symbol,
@@ -159,10 +161,12 @@ export class MoscowExchangeService implements DataProviderInterface {
     const secid = this.toExchangeSymbol(symbol);
 
     try {
-      const description = await this.getDescription({ requestTimeout, secid })
-        .catch(() => {
-          return undefined;
-        });
+      const description = await this.getDescription({
+        requestTimeout,
+        secid
+      }).catch(() => {
+        return undefined;
+      });
 
       const group = String(description?.['GROUP'] ?? '').toLowerCase();
       const isBond = group === 'stock_bonds' || group === 'stock_eurobond';
@@ -452,89 +456,85 @@ export class MoscowExchangeService implements DataProviderInterface {
       `${this.URL}/engines/stock/markets/${market}/securities.json?${queryParams}`,
       { requestTimeout }
     ).then(({ marketdata, securities }) => {
-        const marketDataRows = this.getRows(marketdata).filter(
-          ({ SECID }) => {
-            return symbols.includes(SECID as string);
-          }
-        ) as {
-          BOARDID: string;
-          LAST: number;
-          MARKETPRICE: number;
-          SECID: string;
-          TRADINGSTATUS: string;
-          WAPRICE: number;
-        }[];
-        const securitiesRows = this.getRows(securities) as {
-          SECID: string;
-          BOARDID: string;
-          FACEVALUE: string;
-        }[];
+      const marketDataRows = this.getRows(marketdata).filter(({ SECID }) => {
+        return symbols.includes(SECID as string);
+      }) as {
+        BOARDID: string;
+        LAST: number;
+        MARKETPRICE: number;
+        SECID: string;
+        TRADINGSTATUS: string;
+        WAPRICE: number;
+      }[];
+      const securitiesRows = this.getRows(securities) as {
+        SECID: string;
+        BOARDID: string;
+        FACEVALUE: string;
+      }[];
 
-        const isBondMarket = market === 'bonds';
-        const faceValues: { [secid: string]: number } = {};
+      const isBondMarket = market === 'bonds';
+      const faceValues: { [secid: string]: number } = {};
 
-        for (const { FACEVALUE, SECID } of securitiesRows) {
-          if (!(SECID in faceValues) && isNumber(Number(FACEVALUE))) {
-            faceValues[SECID] = Number(FACEVALUE);
-          }
+      for (const { FACEVALUE, SECID } of securitiesRows) {
+        if (!(SECID in faceValues) && isNumber(Number(FACEVALUE))) {
+          faceValues[SECID] = Number(FACEVALUE);
         }
+      }
 
-        const quotes: {
-          [secid: string]: {
-            marketPrice: number;
-            marketState: MarketState;
-          };
-        } = {};
-        const selectedSecIds: string[] = [];
+      const quotes: {
+        [secid: string]: {
+          marketPrice: number;
+          marketState: MarketState;
+        };
+      } = {};
+      const selectedSecIds: string[] = [];
 
-        // Select the best quote per security by the board priority
-        for (const boardId of [...this.BOARDS_PRIORITY, '']) {
-          for (const row of marketDataRows) {
-            const { BOARDID, LAST, MARKETPRICE, SECID, TRADINGSTATUS, WAPRICE } =
-              row;
+      // Select the best quote per security by the board priority
+      for (const boardId of [...this.BOARDS_PRIORITY, '']) {
+        for (const row of marketDataRows) {
+          const { BOARDID, LAST, MARKETPRICE, SECID, TRADINGSTATUS, WAPRICE } =
+            row;
 
-            if (BOARDID !== boardId || selectedSecIds.includes(SECID)) {
-              continue;
-            }
-
-            const rawPrice = isNumber(LAST)
-              ? LAST
-              : isNumber(MARKETPRICE)
-                ? MARKETPRICE
-                : WAPRICE;
-
-            if (!isNumber(rawPrice)) {
-              continue;
-            }
-
-            const marketPrice = isBondMarket
-              ? (rawPrice * faceValues[SECID]) / 100
-              : rawPrice;
-            const marketState: MarketState =
-              TRADINGSTATUS === 'T' ? 'open' : 'closed';
-
-            quotes[SECID] = { marketPrice, marketState };
-            selectedSecIds.push(SECID);
+          if (BOARDID !== boardId || selectedSecIds.includes(SECID)) {
+            continue;
           }
-        }
 
-        return quotes;
-      });
+          const rawPrice = isNumber(LAST)
+            ? LAST
+            : isNumber(MARKETPRICE)
+              ? MARKETPRICE
+              : WAPRICE;
+
+          if (!isNumber(rawPrice)) {
+            continue;
+          }
+
+          const marketPrice = isBondMarket
+            ? (rawPrice * faceValues[SECID]) / 100
+            : rawPrice;
+          const marketState: MarketState =
+            TRADINGSTATUS === 'T' ? 'open' : 'closed';
+
+          quotes[SECID] = { marketPrice, marketState };
+          selectedSecIds.push(SECID);
+        }
+      }
+
+      return quotes;
+    });
   }
 
   private getRows<T extends Record<string, string | number>>(aBlockData: {
     columns: string[];
     data: (string | number)[][];
   }): T[] {
-    return (
-      aBlockData?.data?.map((row) => {
-        return Object.fromEntries(
-          aBlockData.columns.map((column, index) => {
-            return [column, row[index]];
-          })
-        );
-      }) ?? []
-    ) as T[];
+    return (aBlockData?.data?.map((row) => {
+      return Object.fromEntries(
+        aBlockData.columns.map((column, index) => {
+          return [column, row[index]];
+        })
+      );
+    }) ?? []) as T[];
   }
 
   private parseAssetClass(aGroup: string): {
@@ -563,6 +563,10 @@ export class MoscowExchangeService implements DataProviderInterface {
       case 'stock_shares':
         assetClass = AssetClass.EQUITY;
         assetSubClass = AssetSubClass.STOCK;
+        break;
+      case 'currency_selt':
+        assetClass = AssetClass.LIQUIDITY;
+        assetSubClass = AssetSubClass.CASH;
         break;
     }
 

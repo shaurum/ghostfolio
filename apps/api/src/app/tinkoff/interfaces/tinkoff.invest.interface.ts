@@ -22,6 +22,8 @@ export interface TinkoffOperation {
   type?: string;
   description?: string;
   state?: string;
+  classCode?: string;
+  ticker?: string;
   figi?: string;
   instrumentType?: string;
   instrumentKind?: string;
@@ -31,6 +33,7 @@ export interface TinkoffOperation {
   payment?: TinkoffMoneyValue;
   price?: TinkoffMoneyValue;
   commission?: TinkoffMoneyValue;
+  accruedInt?: TinkoffMoneyValue;
   quantity?: string;
   quantityRest?: string;
   quantityDone?: string;

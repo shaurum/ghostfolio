@@ -4,7 +4,11 @@ import { DataProviderService } from '@ghostfolio/api/services/data-provider/data
 import { FetchService } from '@ghostfolio/api/services/fetch/fetch.service';
 import { PrismaService } from '@ghostfolio/api/services/prisma/prisma.service';
 import { PropertyService } from '@ghostfolio/api/services/property/property.service';
-import { PROPERTY_TINKOFF_API_TOKEN } from '@ghostfolio/common/config';
+import {
+  INVESTMENT_ACTIVITY_TYPES,
+  NON_INVESTMENT_ACTIVITY_TYPES,
+  PROPERTY_TINKOFF_API_TOKEN
+} from '@ghostfolio/common/config';
 import {
   CreateAccountWithBalancesDto,
   CreateOrderDto
@@ -57,19 +61,40 @@ export class TinkoffService {
   private static readonly INSTRUMENT_ID_TYPE_POSITION_UID =
     'INSTRUMENT_ID_TYPE_POSITION_UID';
   private static readonly INSTRUMENT_ID_TYPE_UID = 'INSTRUMENT_ID_TYPE_UID';
+  /**
+   * The commission of a trade is already reported as part of the commission of
+   * the trade operation, so importing it again would count it twice. The
+   * deposits and withdrawals move the own money of the user: they are not an
+   * investment activity and would distort the return of the portfolio. The
+   * transfers move money between the own accounts of the user and are covered
+   * by the balances of the accounts. The canceled operations never took place.
+   */
+  private static readonly IGNORED_OPERATION_TYPES = [
+    'OPERATION_TYPE_BROKER_FEE',
+    'OPERATION_TYPE_CANCELED',
+    'OPERATION_TYPE_INPUT',
+    'OPERATION_TYPE_INP_MULTI',
+    'OPERATION_TYPE_OUTPUT',
+    'OPERATION_TYPE_TRANSFER',
+    'OPERATION_TYPE_TRANS_IIS_BS'
+  ];
   private static readonly MANUAL_ACTIVITY_PREFIX = 'tinkoff_';
   private static readonly OPERATIONS_FROM = '2000-01-01T00:00:00Z';
   private static readonly PLATFORM_ID = 'tinkoff';
   private static readonly REQUEST_TIMEOUT = ms('30 seconds');
   private static readonly RESOLVE_REQUEST_TIMEOUT = ms('30 seconds');
   private static readonly SUPPORTED_CLASS_CODES = [
+    'CNGD',
     'PSAU',
+    'PSBB_EQ',
+    'PSSU',
     'TQBR',
-    'TQTF',
-    'TQIF',
     'TQCB',
+    'TQDB',
+    'TQIF',
     'TQOB',
-    'TQDB'
+    'TQOD',
+    'TQTF'
   ];
 
   private readonly instrumentsCache = new Map<string, TinkoffInstrument>();
@@ -291,11 +316,13 @@ export class TinkoffService {
         );
       });
 
+      const amortizationPayouts = new Map<string, number>();
       const balances = new Map<string, number>();
 
       for (const operation of sortedOperations) {
         const activity = await this.mapOperationToActivity({
           accountId,
+          amortizationPayouts,
           balances,
           operation,
           token
@@ -424,9 +451,15 @@ export class TinkoffService {
       return [];
     }
 
+    // The cash flows are not backed by a security of the exchange, so they must
+    // not be filtered by the data provider.
+    const investmentActivities = activitiesDto.filter(({ type }) => {
+      return INVESTMENT_ACTIVITY_TYPES.includes(type);
+    });
+
     const symbolIds = [
       ...new Set(
-        activitiesDto.map(({ symbol }) => {
+        investmentActivities.map(({ symbol }) => {
           return symbol;
         })
       )
@@ -438,8 +471,11 @@ export class TinkoffService {
     );
 
     const activitiesDtoOfSupportedSymbols = activitiesDto.filter(
-      ({ symbol }) => {
-        return supportedSymbols.has(symbol);
+      ({ symbol, type }) => {
+        return (
+          !INVESTMENT_ACTIVITY_TYPES.includes(type) ||
+          supportedSymbols.has(symbol)
+        );
       }
     );
 
@@ -561,15 +597,34 @@ export class TinkoffService {
 
   private async mapOperationToActivity({
     accountId,
+    amortizationPayouts,
     balances,
     operation,
     token
   }: {
     accountId: string;
+    amortizationPayouts: Map<string, number>;
     balances: Map<string, number>;
     operation: TinkoffOperation;
     token: string;
   }): Promise<CreateOrderDto | undefined> {
+    if (!operation.date) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}) due to missing date`
+      );
+
+      return undefined;
+    }
+
+    if (TinkoffService.IGNORED_OPERATION_TYPES.includes(operation.type)) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}, ${operation.description}) because it does not represent an independent change of the portfolio`
+      );
+
+      return undefined;
+    }
+
+    const payment = this.toNumber(operation.payment);
     const type = this.getActivityType(operation.type);
 
     if (!type) {
@@ -580,12 +635,15 @@ export class TinkoffService {
       return undefined;
     }
 
-    if (!operation.date) {
-      this.logger.debug(
-        `Skipping operation "${operation.id}" (${operation.type}) due to missing date`
-      );
-
-      return undefined;
+    // The cash flows and the withheld taxes are not backed by a security of
+    // the exchange, so they are recorded against the currency of the payment.
+    if (NON_INVESTMENT_ACTIVITY_TYPES.includes(type)) {
+      return this.mapCashFlowToActivity({
+        accountId,
+        operation,
+        payment,
+        type
+      });
     }
 
     const instrument = await this.getInstrument({ operation, token });
@@ -606,7 +664,6 @@ export class TinkoffService {
       return undefined;
     }
 
-    const payment = this.toNumber(operation.payment);
     const price = this.toNumber(operation.price);
     const symbol = `${instrument.ticker.toUpperCase()}.MOEX`;
     let unitPrice: number;
@@ -622,6 +679,20 @@ export class TinkoffService {
       unitPrice = new Big(price).abs().toNumber();
     }
 
+    if (operation.type === 'OPERATION_TYPE_BOND_REPAYMENT') {
+      // The partial redemption of an amortizing bond does not change the
+      // number of the bonds, but it returns a part of the nominal. The payout
+      // is accumulated and settled together with the final redemption, so that
+      // the position is closed at its proceeds instead of at the remaining
+      // nominal per bond.
+      amortizationPayouts.set(
+        symbol,
+        (amortizationPayouts.get(symbol) ?? 0) + Math.abs(payment)
+      );
+
+      return undefined;
+    }
+
     if (operation.type === 'OPERATION_TYPE_BOND_REPAYMENT_FULL') {
       // Full redemption closes the whole remaining position at the
       // payment-implied price (remaining nominal per bond, e.g. amortized)
@@ -635,8 +706,17 @@ export class TinkoffService {
         return undefined;
       }
 
+      // The proceeds of the position consist of the final redemption and the
+      // partial redemptions accumulated before it. Without them, the position
+      // of an amortizing bond would be closed at its remaining nominal, which
+      // is unrelated to the price it was bought at.
+      const proceeds =
+        Math.abs(payment) + (amortizationPayouts.get(symbol) ?? 0);
+
+      amortizationPayouts.delete(symbol);
+
       quantity = balance;
-      unitPrice = new Big(payment).div(balance).toNumber();
+      unitPrice = new Big(proceeds).div(balance).toNumber();
     }
 
     if (quantity <= 0) {
@@ -728,6 +808,61 @@ export class TinkoffService {
       symbol,
       type,
       unitPrice
+    };
+  }
+
+  /**
+   * Maps an operation which does not belong to a security, for example a
+   * withheld tax, to a cash flow of the account. The currency of the payment is
+   * used as the symbol, which creates a custom asset profile of the currency,
+   * the same way a manually entered cash movement is represented in
+   * Ghostfolio.
+   */
+  private mapCashFlowToActivity({
+    accountId,
+    operation,
+    payment,
+    type
+  }: {
+    accountId: string;
+    operation: TinkoffOperation;
+    payment: number;
+    type: Type;
+  }): CreateOrderDto | undefined {
+    const currency =
+      operation.payment?.currency?.toUpperCase() ??
+      operation.price?.currency?.toUpperCase();
+
+    if (!currency || !isCurrency(currency)) {
+      this.logger.debug(
+        `Skipping operation "${operation.id}" (${operation.type}) due to an unsupported currency "${currency}"`
+      );
+
+      return undefined;
+    }
+
+    const amount = new Big(payment).abs().toNumber();
+
+    if (amount <= 0) {
+      return undefined;
+    }
+
+    const description = operation.description || operation.name;
+    const name = operation.name;
+
+    return {
+      accountId,
+      comment:
+        description && name && description !== name
+          ? `${description} (${name})`
+          : (description ?? undefined),
+      currency,
+      date: operation.date,
+      fee: new Big(this.toNumber(operation.commission)).abs().toNumber(),
+      quantity: 1,
+      symbol: currency,
+      type,
+      unitPrice: amount
     };
   }
 
@@ -842,11 +977,16 @@ export class TinkoffService {
       case 'OPERATION_TYPE_SELL_MARGIN':
       case 'OPERATION_TYPE_BOND_REPAYMENT_FULL':
         return Type.SELL;
-      case 'OPERATION_TYPE_BOND_REPAYMENT':
       case 'OPERATION_TYPE_COUPON':
       case 'OPERATION_TYPE_DIVIDEND':
+      case 'OPERATION_TYPE_DIV_EXT':
       case 'OPERATION_TYPE_PAYMENT':
         return Type.DIVIDEND;
+      case 'OPERATION_TYPE_BOND_TAX':
+      case 'OPERATION_TYPE_DIVIDEND_TAX':
+      case 'OPERATION_TYPE_TAX':
+      case 'OPERATION_TYPE_TAX_CORRECTION':
+        return Type.FEE;
       default:
         return undefined;
     }
