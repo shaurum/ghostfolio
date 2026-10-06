@@ -717,13 +717,13 @@ export class TinkoffService {
     return {
       accountId,
       comment: operation.name || undefined,
-      currency:
-        operation.payment?.currency?.toUpperCase() ??
-        instrument.currency?.toUpperCase() ??
-        'RUB',
+      currency: this.getActivityCurrency({ instrument, operation, type }),
       dataSource: DataSource.MOSCOW_EXCHANGE,
       date: operation.date,
-      fee: this.toNumber(operation.commission),
+      // Tinkoff reports the commission as a negative amount for every
+      // operation. Ghostfolio treats the fee as a positive cost and subtracts
+      // it from the cash flow, hence the absolute value is required.
+      fee: new Big(this.toNumber(operation.commission)).abs().toNumber(),
       quantity,
       symbol,
       type,
@@ -802,6 +802,32 @@ export class TinkoffService {
     }
 
     return requests;
+  }
+
+  /**
+   * The amounts of an operation are reported in the currency of the traded
+   * instrument, which is not necessarily the currency of the payment: the
+   * redemption of a bond denominated in USD is paid out in RUB, for example.
+   * The unit price therefore defines the currency of a trade, while the payment
+   * defines it for the income operations.
+   */
+  private getActivityCurrency({
+    instrument,
+    operation,
+    type
+  }: {
+    instrument: TinkoffInstrument;
+    operation: TinkoffOperation;
+    type: Type;
+  }) {
+    const currency =
+      type === Type.DIVIDEND
+        ? operation.payment?.currency
+        : (operation.price?.currency ?? operation.payment?.currency);
+
+    return (
+      currency?.toUpperCase() ?? instrument.currency?.toUpperCase() ?? 'RUB'
+    );
   }
 
   private getActivityType(operationType: string): Type | undefined {
