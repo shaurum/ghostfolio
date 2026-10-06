@@ -134,7 +134,15 @@ export class GfAdminImportSourceComponent implements OnInit {
       .subscribe({
         next: (result) => {
           this.notificationService.alert({
-            message: `Imported: ${result.importedActivitiesCount}, Duplicates: ${result.duplicateActivitiesCount}, Failed: ${result.failedActivitiesCount}`,
+            message: [
+              `Accounts: ${result.accountsCount}`,
+              `Operations: ${result.totalOperationsCount}`,
+              `Activities: ${result.activitiesCount}`,
+              `Imported: ${result.importedActivitiesCount}`,
+              `Duplicates: ${result.duplicateActivitiesCount}`,
+              `Failed: ${result.failedActivitiesCount}`,
+              `Skipped: ${result.skippedActivitiesCount}`
+            ].join(', '),
             title: 'Sync completed'
           });
         },

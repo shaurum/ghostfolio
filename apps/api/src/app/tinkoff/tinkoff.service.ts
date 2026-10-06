@@ -9,7 +9,10 @@ import {
   CreateAccountWithBalancesDto,
   CreateOrderDto
 } from '@ghostfolio/common/dtos';
-import { getAssetProfileIdentifier } from '@ghostfolio/common/helper';
+import {
+  getAssetProfileIdentifier,
+  isCurrency
+} from '@ghostfolio/common/helper';
 import {
   AdminTinkoffDeleteResponse,
   AdminTinkoffSyncResponse,
@@ -54,6 +57,7 @@ export class TinkoffService {
   private static readonly OPERATIONS_FROM = '2000-01-01T00:00:00Z';
   private static readonly PLATFORM_ID = 'tinkoff';
   private static readonly REQUEST_TIMEOUT = ms('30 seconds');
+  private static readonly RESOLVE_REQUEST_TIMEOUT = ms('30 seconds');
   private static readonly SUPPORTED_CLASS_CODES = [
     'PSAU',
     'TQBR',
@@ -294,8 +298,14 @@ export class TinkoffService {
       activitiesDto.length - activitiesDtoOfSupportedSymbols.length;
 
     this.logger.log(
-      `Syncing ${activitiesDtoOfSupportedSymbols.length} Tinkoff activities for user "${user.id}" (dry run: ${isDryRun})`
+      `Syncing ${activitiesDtoOfSupportedSymbols.length} of ${activitiesDto.length} mapped Tinkoff activities (${skippedActivitiesCount} skipped by the data provider) for user "${user.id}" (dry run: ${isDryRun})`
     );
+
+    if (activitiesDtoOfSupportedSymbols.length === 0) {
+      throw new BadRequestException(
+        'None of the Tinkoff activities could be resolved by the Moscow Exchange data provider. Please check the API logs for the underlying data provider errors'
+      );
+    }
 
     const activities = await this.importService
       .import({
@@ -378,42 +388,16 @@ export class TinkoffService {
       )
     ];
 
-    let assetProfiles: { [assetProfileIdentifier: string]: unknown } = {};
-
-    try {
-      assetProfiles = await this.dataProviderService.getAssetProfiles(
-        symbolIds.map((symbol) => {
-          return { dataSource: DataSource.MOSCOW_EXCHANGE, symbol };
-        })
-      );
-    } catch (error) {
-      this.logger.error(error);
-    }
-
-    const supportedAssetProfileIdentifiers = new Set(
-      Object.keys(assetProfiles)
-    );
+    const supportedSymbols = await this.resolveSupportedSymbols(symbolIds);
 
     const activitiesDtoOfSupportedSymbols = activitiesDto.filter(
       ({ symbol }) => {
-        return supportedAssetProfileIdentifiers.has(
-          getAssetProfileIdentifier({
-            dataSource: DataSource.MOSCOW_EXCHANGE,
-            symbol
-          })
-        );
+        return supportedSymbols.has(symbol);
       }
     );
 
-    for (const { symbol } of activitiesDto) {
-      if (
-        !supportedAssetProfileIdentifiers.has(
-          getAssetProfileIdentifier({
-            dataSource: DataSource.MOSCOW_EXCHANGE,
-            symbol
-          })
-        )
-      ) {
+    for (const symbol of symbolIds) {
+      if (!supportedSymbols.has(symbol)) {
         this.logger.warn(
           `Skipping the symbol "${symbol}" (${DataSource.MOSCOW_EXCHANGE}), because it could not be resolved by the data provider`
         );
@@ -421,6 +405,62 @@ export class TinkoffService {
     }
 
     return activitiesDtoOfSupportedSymbols;
+  }
+
+  /**
+   * Resolves the symbols one by one against the data provider. A single failed
+   * request must not discard the whole import: getAssetProfiles() rejects all
+   * results if any of its requests fails, which would silently drop every
+   * activity of a sync.
+   */
+  private async resolveSupportedSymbols(
+    symbols: string[],
+    concurrency = 5
+  ): Promise<Set<string>> {
+    const supportedSymbols = new Set<string>();
+    const dataProvider = this.dataProviderService.getDataProvider(
+      DataSource.MOSCOW_EXCHANGE
+    );
+
+    const queue = [...symbols];
+
+    const workers = Array.from(
+      { length: Math.min(concurrency, queue.length) },
+      async () => {
+        while (queue.length > 0) {
+          const symbol = queue.shift();
+
+          try {
+            const assetProfile = await dataProvider.getAssetProfile({
+              requestTimeout: TinkoffService.RESOLVE_REQUEST_TIMEOUT,
+              symbol
+            });
+
+            if (isCurrency(assetProfile?.currency)) {
+              supportedSymbols.add(symbol);
+            } else {
+              this.logger.warn(
+                `The asset profile of "${symbol}" (${DataSource.MOSCOW_EXCHANGE}) has no valid currency`
+              );
+            }
+          } catch (error) {
+            this.logger.warn(
+              `Could not resolve the symbol "${symbol}" (${DataSource.MOSCOW_EXCHANGE}): ${
+                error instanceof Error ? error.message : String(error)
+              }`
+            );
+          }
+        }
+      }
+    );
+
+    await Promise.all(workers);
+
+    this.logger.log(
+      `Resolved ${supportedSymbols.size} of ${symbols.length} symbols (${DataSource.MOSCOW_EXCHANGE})`
+    );
+
+    return supportedSymbols;
   }
 
   private async getAccounts(token: string): Promise<TinkoffAccount[]> {
